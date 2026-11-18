@@ -181,16 +181,19 @@ class OllamaCortexAgent:
                         "result": res
                     })
 
+                self._log_interaction(user_prompt, executed_results, "Executed OS actions")
                 return {
                     "status": "success",
                     "executed_tools": executed_results,
                     "response": f"Executed {len(executed_results)} OS action(s)."
                 }
             else:
+                content = message.get("content", "Command acknowledged.")
+                self._log_interaction(user_prompt, [], content)
                 return {
                     "status": "success",
                     "executed_tools": [],
-                    "response": message.get("content", "Command acknowledged.")
+                    "response": content
                 }
 
         except Exception as e:
@@ -198,3 +201,25 @@ class OllamaCortexAgent:
                 "status": "error",
                 "message": f"Ollama execution error: {e}"
             }
+
+    def _log_interaction(self, prompt: str, tool_results: List[Dict], response: str):
+        """Persists every user command into local telemetry history for ongoing fine-tuning."""
+        try:
+            import os
+            import time
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            log_dir = os.path.join(base_dir, "data")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, "interaction_history.jsonl")
+
+            entry = {
+                "timestamp": time.time(),
+                "user_prompt": prompt,
+                "model": self.active_model,
+                "tool_results": tool_results,
+                "response": response
+            }
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception:
+            pass

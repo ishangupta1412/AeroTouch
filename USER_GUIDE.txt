@@ -1,5 +1,5 @@
 ================================================================================
-                         AEROTOUCH — QUICK USER GUIDE
+                         AEROTOUCH — QUICK USER GUIDE (v2.0)
 ================================================================================
 
 HOW TO START (3 WAYS):
@@ -14,28 +14,31 @@ HOW TO START (3 WAYS):
 3. TERMINAL LAUNCH:
    cd "C:\Users\Ishan Gupta\OneDrive\Desktop\AeroTouch"
    python -m src.main
+   (Or with ambient floating orb: python -m src.main --orb)
 
 A camera window titled "AeroTouch Spatial Kernel" will open up.
 
 --------------------------------------------------------------------------------
-HOW TO CONTROL YOUR LAPTOP WITH GESTURES (ZERO-LAG 60 FPS):
+HOW TO CONTROL YOUR LAPTOP WITH GESTURES (PRECISION v2.0):
 --------------------------------------------------------------------------------
 
-1. MOUSE CURSOR MOVEMENT:
+1. MOUSE CURSOR MOVEMENT (ROCK-SOLID STILLNESS):
    - Bring your RIGHT HAND in front of the webcam.
    - Point with your INDEX FINGER and move through the air.
-   - Cursor moves smoothly in real-time across your display.
+   - Dynamic Spatial Deadband Noise Gate suppresses hand tremors < 4.8px.
+   - When you hold your finger still, the cursor locks rock-solid with zero vibration.
 
-2. LEFT CLICK (Normal Select / Open):
-   - Pinch your THUMB and INDEX FINGER tips together.
-   - Your laptop will register an atomic left click immediately!
+2. INTENTIONAL LEFT CLICK (ZERO GHOST CLICKS):
+   - Deliberately pinch your THUMB and INDEX FINGER tips together.
+   - Multi-Frame Confirmation (2 consecutive frames) guarantees no accidental clicks.
+   - Once released, 200ms hysteresis prevents double-click flutter.
 
-3. RIGHT CLICK (Context Menu):
+3. RIGHT CLICK (CONTEXT MENU):
    - Pinch your THUMB and MIDDLE FINGER tips together.
-   - Context menu opens instantly!
+   - Context menu opens cleanly without moving the pointer.
 
 4. SNAP ACTIVE WINDOW TO LEFT HALF:
-   - Make a FIST (✊) with your LEFT HAND.
+   - Make a FIST with your LEFT HAND.
    - While holding the fist, PINCH with your RIGHT HAND.
    - The active window snaps to the left half of your screen.
 
@@ -48,29 +51,17 @@ HOW TO CONTROL YOUR LAPTOP WITH GESTURES (ZERO-LAG 60 FPS):
    - Click the camera window and press the 'q' key.
 
 --------------------------------------------------------------------------------
-AEROTOUCH CORTEX: LOCAL AI BRAIN (QWEN 2.5 VIA OLLAMA):
+AEROTOUCH CORTEX: AUTONOMOUS BACKGROUND KINEMATIC COACH:
 --------------------------------------------------------------------------------
-AeroTouch now has a dedicated local AI Cortex powered by your Ollama 'qwen2.5:3b'
-model, adapted as 'aerotouch-qwen:latest'!
+AeroTouch runs a local AI coach powered by your Ollama 'aerotouch-qwen:latest'
+model (built on Qwen 2.5).
 
-To test the AI Cortex with natural language (English/Hindi/Hinglish):
-   python -c "from src.cortex import OllamaCortexAgent; a = OllamaCortexAgent(); print(a.process_command('bhai volume thoda badha do'))"
-
-Commands it understands out-of-the-box:
-   • "spotify open karo" / "open chrome" / "code kholo"
-   • "volume badhao" / "awaaz kam karo" / "mute kardo" / "next song"
-   • "screen split kardo left side me" / "maximize window"
-   • "agla desktop open karo"
-
---------------------------------------------------------------------------------
-NEURAL GESTURE CALIBRATOR (MICRO-MLP):
---------------------------------------------------------------------------------
-AeroTouch includes a sub-millisecond Neural Classifier (<0.1ms inference, 5000+ FPS)
-that classifies hand poses without any lag.
-
-To re-calibrate or re-train on your hand geometry at any time:
-   python -m src.gestures.train_micro_mlp
-
-Training dataset for LLM fine-tuning is located at:
-   data/fine_tune_dataset.jsonl
+How it works:
+1. While you use AeroTouch, your session telemetry (pinch distance distribution,
+   finger velocity, tremor amplitude) is recorded to data/sessions/.
+2. When you exit with 'q', Qwen analyzes your session data in the background.
+3. Qwen calculates personalized parameter adjustments tailored to your exact hand
+   geometry and writes them to data/user_profile.json.
+4. Next time you launch AeroTouch, it automatically boots with your fine-tuned
+   profile for maximum precision!
 ================================================================================

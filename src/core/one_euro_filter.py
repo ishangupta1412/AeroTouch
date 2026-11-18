@@ -1,7 +1,7 @@
 """
-AeroTouch Core Signal Processing: One Euro (1€) Adaptive Dynamic Low-Pass Filter
+AeroTouch Core Signal Processing: Precision Adaptive 1-Euro Filter with Dynamic Spatial Deadband
 Reference: Casiez, G., Roussel, N. and Vogel, D. (CHI 2012)
-Designed to eliminate high-frequency hand tremors while maintaining sub-millisecond responsiveness during fast sweeps.
+Engineered for zero-vibration stationary cursor stability and instantaneous dynamic velocity response.
 """
 
 import math
@@ -35,14 +35,14 @@ class LowPassFilter:
 class OneEuroFilter:
     """
     Adaptive 1€ dynamic filter for 1D spatial tracking signals.
-    Adapts cutoff frequency based on input signal derivative (velocity).
+    Minimizes jitter at low speeds (min_cutoff=0.05Hz) and eliminates lag at high speeds.
     """
 
     def __init__(
         self,
-        min_cutoff: float = 1.0,  # Hz (Minimum cutoff frequency: lower = smoother at rest)
-        beta: float = 0.007,      # Velocity coefficient (higher = less lag during fast movement)
-        d_cutoff: float = 1.0     # Hz (Cutoff for derivative calculation)
+        min_cutoff: float = 0.05,  # Lower cutoff kills stationary muscle tremor completely
+        beta: float = 0.012,       # Velocity scaling factor for fluid sweeps
+        d_cutoff: float = 1.0      # Derivative cutoff frequency
     ):
         self.min_cutoff: float = float(min_cutoff)
         self.beta: float = float(beta)
@@ -64,9 +64,7 @@ class OneEuroFilter:
         self.last_time = None
 
     def filter(self, x: float, timestamp: Optional[float] = None) -> float:
-        """
-        Filters incoming noisy coordinate 'x' based on its calculated velocity.
-        """
+        """Filters noisy coordinate based on instantaneous movement velocity."""
         if timestamp is None:
             timestamp = time.perf_counter()
 
@@ -76,7 +74,7 @@ class OneEuroFilter:
 
         dt = timestamp - self.last_time
         if dt <= 0.0:
-            dt = 1e-5  # Prevent division by zero
+            dt = 1e-5
 
         self.last_time = timestamp
 
@@ -88,7 +86,7 @@ class OneEuroFilter:
         alpha_d = self._alpha(self.d_cutoff, dt)
         edx = self.dx_filter.filter(dx, alpha_d)
 
-        # 3. Dynamically modulate cutoff frequency based on filtered velocity
+        # 3. Dynamically modulate cutoff frequency based on velocity
         cutoff = self.min_cutoff + self.beta * abs(edx)
 
         # 4. Filter original signal using dynamic cutoff
@@ -96,22 +94,57 @@ class OneEuroFilter:
         return self.x_filter.filter(x, alpha_x)
 
 
-class SpatialPointFilter2D:
+class PrecisionSpatialFilter2D:
     """
-    Twin 1€ filters managing (x, y) coordinates for sub-pixel cursor accuracy.
+    Dual-stage 2D spatial filter with Velocity Noise Gate (Deadband).
+    Suppresses micro-jitter < deadband threshold, guaranteeing stationary cursor stillness.
     """
 
-    def __init__(self, min_cutoff: float = 0.8, beta: float = 0.02):
+    def __init__(
+        self,
+        min_cutoff: float = 0.05,
+        beta: float = 0.015,
+        deadband: float = 0.0025  # Normalized deadband threshold (~4.8 screen pixels)
+    ):
         self.filter_x = OneEuroFilter(min_cutoff=min_cutoff, beta=beta)
         self.filter_y = OneEuroFilter(min_cutoff=min_cutoff, beta=beta)
+        self.deadband = deadband
+
+        self.last_output_x: Optional[float] = None
+        self.last_output_y: Optional[float] = None
 
     def reset(self) -> None:
         self.filter_x.reset()
         self.filter_y.reset()
+        self.last_output_x = None
+        self.last_output_y = None
 
     def filter(self, x: float, y: float, timestamp: Optional[float] = None) -> Tuple[float, float]:
         if timestamp is None:
             timestamp = time.perf_counter()
+
+        # Step 1: 1-Euro adaptive frequency filtering
         filtered_x = self.filter_x.filter(x, timestamp)
         filtered_y = self.filter_y.filter(y, timestamp)
+
+        # Step 2: Spatial Noise Gate (Deadband suppression)
+        if self.last_output_x is None:
+            self.last_output_x = filtered_x
+            self.last_output_y = filtered_y
+            return filtered_x, filtered_y
+
+        dist_sq = (filtered_x - self.last_output_x) ** 2 + (filtered_y - self.last_output_y) ** 2
+        deadband_sq = self.deadband ** 2
+
+        if dist_sq < deadband_sq:
+            # Movement is below human physiological tremor threshold -> Lock position completely still
+            return self.last_output_x, self.last_output_y
+
+        # Intentional human motion detected -> update output smoothly
+        self.last_output_x = filtered_x
+        self.last_output_y = filtered_y
         return filtered_x, filtered_y
+
+
+# Backward compatibility alias
+SpatialPointFilter2D = PrecisionSpatialFilter2D

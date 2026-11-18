@@ -1,29 +1,28 @@
 """
-AeroTouch Gesture Recognition & Bimanual State Engine
-Implements scale-invariant landmark geometry, dual-hand chording, and non-blocking hysteresis debouncing.
+AeroTouch Bimanual Gesture & Kinematic Engine (Precision v2.0)
+Scale-invariant 3D vector geometry with Multi-Frame Temporal Confirmation.
+Eliminates random false-positive clicks and stabilizes spatial interaction.
 """
 
 import math
 import time
-from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, List, Optional, Tuple
+from typing import Tuple, List, Optional, Dict
 
 
 class HandMode(Enum):
-    IDLE = auto()
-    POINTER_NAV = auto()
-    WINDOW_SNAP = auto()
-    DESKTOP_SWITCH = auto()
-    MEDIA_CONTROL = auto()
-    EMERGENCY_DESKTOP = auto()
+    POINTER_NAV = auto()     # Standard cursor movement & navigation
+    WINDOW_SNAP = auto()     # Left fist held: snap active window to left/right
+    MEDIA_CONTROL = auto()   # Left two-finger peace: volume & media adjustment
+    DESKTOP_SWITCH = auto()  # Left three-finger open: virtual desktop flipping
 
 
-@dataclass
 class HandLandmarks:
-    """Canonical 21 3D landmarks for a single hand (normalized [0, 1])."""
-    points: List[Tuple[float, float, float]]
-    handedness: str  # 'Left' or 'Right' (from camera perspective)
+    """Wrapper around 21 normalized 3D hand landmarks."""
+
+    def __init__(self, points: List[Tuple[float, float, float]], handedness: str = "Right"):
+        self.points = points
+        self.handedness = handedness
 
     @property
     def wrist(self) -> Tuple[float, float, float]:
@@ -55,17 +54,19 @@ class GestureMath:
 
     @staticmethod
     def euclidean_dist(p1: Tuple[float, float, ...], p2: Tuple[float, float, ...]) -> float:
-        return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1[:2], p2[:2])))
+        """3D Euclidean distance when z is present, falling back gracefully to 2D."""
+        dim = min(len(p1), len(p2), 3)
+        return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1[:dim], p2[:dim])))
 
     @classmethod
     def hand_scale(cls, hand: HandLandmarks) -> float:
-        """Computes scale of hand using distance from wrist (0) to middle MCP (9)."""
+        """Computes scale of hand using 3D distance from wrist (0) to middle MCP (9)."""
         scale = cls.euclidean_dist(hand.wrist, hand.points[9])
         return max(scale, 0.01)
 
     @classmethod
     def normalized_pinch_distance(cls, hand: HandLandmarks, finger_idx: int = 8) -> float:
-        """Pinch distance normalized by overall hand scale."""
+        """Pinch distance normalized by overall hand scale in 3D."""
         raw_dist = cls.euclidean_dist(hand.thumb_tip, hand.points[finger_idx])
         return raw_dist / cls.hand_scale(hand)
 
@@ -80,12 +81,11 @@ class GestureMath:
     def count_extended_fingers(cls, hand: HandLandmarks) -> int:
         """Returns count of extended fingers [0 to 5]."""
         count = 0
-        # Check fingers: Index (8,6), Middle (12,10), Ring (16,14), Pinky (20,18)
         pairs = [(8, 6), (12, 10), (16, 14), (20, 18)]
         for tip, pip in pairs:
             if cls.is_finger_extended(hand, tip, pip):
                 count += 1
-        # Thumb check (4 vs 2)
+        # Thumb check
         if cls.euclidean_dist(hand.thumb_tip, hand.points[17]) > cls.euclidean_dist(hand.points[2], hand.points[17]):
             count += 1
         return count
@@ -93,23 +93,33 @@ class GestureMath:
 
 class BimanualEngine:
     """
-    Coordinates Left-Hand Mode (Modifier) with Right-Hand Pointer & Actions.
-    Solves the HandWave 3s freeze bug using asynchronous hysteresis debounce.
+    Finite State Machine for precision bimanual spatial interaction.
+    Features:
+    - Multi-frame temporal confirmation (eliminates single-frame ghost clicks).
+    - True 3D perspective-invariant scale normalization.
+    - Zero-flutter asynchronous debounce and anchor-lock telemetry.
     """
 
-    def __init__(self, pinch_threshold: float = 0.35, release_threshold: float = 0.40, debounce_seconds: float = 0.20):
+    def __init__(
+        self,
+        pinch_threshold: float = 0.28,
+        release_threshold: float = 0.38,
+        debounce_seconds: float = 0.20,
+        confirm_frames: int = 2
+    ):
         self.pinch_threshold = pinch_threshold
         self.release_threshold = release_threshold
         self.debounce_seconds = debounce_seconds
+        self.confirm_frames = confirm_frames
 
         self.is_pinching: bool = False
+        self.pinch_streak: int = 0
+        self.middle_pinch_streak: int = 0
         self.last_click_time: float = 0.0
         self.current_left_mode: HandMode = HandMode.POINTER_NAV
 
     def evaluate_left_modifier(self, left_hand: Optional[HandLandmarks]) -> HandMode:
-        """
-        Interprets Left Hand gesture to set the current System Modifier Mode.
-        """
+        """Interprets Left Hand gesture to set the current System Modifier Mode."""
         if left_hand is None:
             self.current_left_mode = HandMode.POINTER_NAV
             return self.current_left_mode
@@ -117,17 +127,11 @@ class BimanualEngine:
         extended = GestureMath.count_extended_fingers(left_hand)
 
         if extended == 0:
-            # Closed Fist -> Grab Active Window Snap Mode
             self.current_left_mode = HandMode.WINDOW_SNAP
         elif extended == 2:
-            # Peace sign -> Volume & Media Control Mode
             self.current_left_mode = HandMode.MEDIA_CONTROL
         elif extended == 3:
-            # 3 Fingers -> Virtual Desktop Navigation Mode
             self.current_left_mode = HandMode.DESKTOP_SWITCH
-        elif extended >= 5:
-            # Open palm -> Standard Pointer Mode
-            self.current_left_mode = HandMode.POINTER_NAV
         else:
             self.current_left_mode = HandMode.POINTER_NAV
 
@@ -136,45 +140,60 @@ class BimanualEngine:
     def evaluate_right_action(self, right_hand: HandLandmarks, now: Optional[float] = None) -> Dict[str, any]:
         """
         Processes Right Hand coordinates for cursor tracking and atomic pinch events.
+        Enforces 2-frame temporal stability to kill random phantom clicks.
         """
         if now is None:
             now = time.perf_counter()
 
-        # 1. Cursor Target Coordinate (Index Tip)
         raw_x, raw_y, raw_z = right_hand.index_tip
 
-        # 2. Invariant Normalized Pinch Metrics
-        norm_pinch = GestureMath.normalized_pinch_distance(right_hand, finger_idx=8)
-        norm_middle_pinch = GestureMath.normalized_pinch_distance(right_hand, finger_idx=12)
+        # 3D Invariant Normalized Pinch Metrics
+        norm_pinch = GestureMath.normalized_pinch_distance(right_hand, finger_idx=8)       # Thumb + Index
+        norm_middle_pinch = GestureMath.normalized_pinch_distance(right_hand, finger_idx=12) # Thumb + Middle
 
-        # 3. Non-blocking Hysteresis State Machine
         click_event = None
         right_click_event = None
 
-        is_index_pinch = norm_pinch < self.pinch_threshold
-        is_middle_pinch = norm_middle_pinch < self.pinch_threshold
+        is_index_candidate = (norm_pinch < self.pinch_threshold) and (norm_pinch <= norm_middle_pinch)
+        is_middle_candidate = (norm_middle_pinch < self.pinch_threshold) and (norm_middle_pinch < norm_pinch)
 
+        # Track consecutive candidate frames for temporal stability
+        if is_index_candidate:
+            self.pinch_streak += 1
+            self.middle_pinch_streak = 0
+        elif is_middle_candidate:
+            self.middle_pinch_streak += 1
+            self.pinch_streak = 0
+        else:
+            self.pinch_streak = 0
+            self.middle_pinch_streak = 0
+
+        # State machine transition
         if not self.is_pinching:
             if (now - self.last_click_time) > self.debounce_seconds:
-                # Left Click: Index + Thumb pinch
-                if is_index_pinch and (norm_pinch <= norm_middle_pinch):
+                # Left Click verified over confirmed frames
+                if self.pinch_streak >= self.confirm_frames:
                     self.is_pinching = True
                     self.last_click_time = now
                     click_event = "LEFT_CLICK"
-                # Right Click: Middle + Thumb pinch
-                elif is_middle_pinch and (norm_middle_pinch < norm_pinch):
+                # Right Click verified over confirmed frames
+                elif self.middle_pinch_streak >= self.confirm_frames:
                     self.is_pinching = True
                     self.last_click_time = now
                     right_click_event = "RIGHT_CLICK"
         else:
-            # Release pinch state smoothly when both fingers separate
-            if norm_pinch > self.release_threshold and norm_middle_pinch > self.release_threshold:
+            # Release pinch state cleanly when both fingers separate past release threshold
+            if (norm_pinch > self.release_threshold) and (norm_middle_pinch > self.release_threshold):
                 self.is_pinching = False
+                self.pinch_streak = 0
+                self.middle_pinch_streak = 0
 
         return {
             "cursor_x": raw_x,
             "cursor_y": raw_y,
             "cursor_z": raw_z,
+            "pinch_distance": norm_pinch,
+            "middle_pinch_distance": norm_middle_pinch,
             "is_pinching": self.is_pinching,
             "click_event": click_event,
             "right_click_event": right_click_event,

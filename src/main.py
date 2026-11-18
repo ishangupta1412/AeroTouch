@@ -1,16 +1,19 @@
 """
-AeroTouch CLI & Execution Entrypoint
+AeroTouch CLI & Execution Entrypoint (Precision Architecture v2.0)
 Starts the 60 FPS real-time touchless spatial OS control loop.
-Zero-lag direct Win32 synthesis with 1-Euro adaptive jitter filtering.
+Zero-lag direct Win32 synthesis with Deadband Jitter Gate and Multi-Frame Confirmation.
 Supports Ambient Floating Orb overlay (Gemini Live style).
+Autonomous Qwen session telemetry self-tuner on session shutdown.
 """
 
 import sys
 import time
+from typing import Optional
 import cv2
 
 from src.core.orchestrator import SpatialOrchestrator
 from src.core.tracker import DualHandTracker
+from src.telemetry.session_logger import SessionTelemetryLogger
 from src.ui.floating_orb import FloatingOrbOverlay
 
 
@@ -18,7 +21,7 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
     print("=" * 65)
     print("      AEROTOUCH: AUTONOMOUS DUAL-HAND SPATIAL OPERATING LAYER     ")
     print("=" * 65)
-    print("Status: Initializing Spatial Hardware Bridge...")
+    print("Status: Initializing Precision Spatial Hardware Bridge...")
 
     orchestrator = SpatialOrchestrator()
     w, h = orchestrator.kernel.get_screen_resolution()
@@ -36,19 +39,23 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
         print("Please check webcam permissions or try index 1.")
         return
 
+    # Initialize Telemetry Logger
+    telemetry = SessionTelemetryLogger()
+    telemetry.open()
+
     orb: Optional[FloatingOrbOverlay] = None
     if use_orb:
         print("[UI]: Launching Ambient Floating Orb (Gemini Live Style)...")
         orb = FloatingOrbOverlay(size=88)
         orb.start()
 
-    print("\n[ACTIVE]: AeroTouch Spatial Engine Running. Press 'q' to stop.")
+    print("\n[ACTIVE]: AeroTouch Precision Spatial Engine Running. Press 'q' to stop.")
     print("Controls:")
-    print("  • Move Index Finger: Move Mouse")
-    print("  • Thumb + Index Pinch: Instant Left Click")
-    print("  • Thumb + Middle Pinch: Right Click")
-    print("  • Left Hand Fist + Right Pinch: Snap Active Window Left")
-    print("  • Left Hand 3-Fingers + Right Pinch: Switch Virtual Desktop\n")
+    print("  * Move Index Finger: Move Mouse (Rock-Solid Deadband Filtering)")
+    print("  * Thumb + Index Pinch: Intentional Left Click (Multi-Frame Confirmed)")
+    print("  * Thumb + Middle Pinch: Right Click")
+    print("  * Left Hand Fist + Right Pinch: Snap Active Window Left")
+    print("  * Left Hand 3-Fingers + Right Pinch: Switch Virtual Desktop\n")
 
     frame_count = 0
     start_time = time.time()
@@ -65,7 +72,15 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
             # Process full spatial frame
             result = orchestrator.process_spatial_frame(right_hand, left_hand, timestamp=now)
 
-            # Real-time console click logging (zero latency)
+            # Record telemetry for background Qwen kinematic self-tuning
+            telemetry.log_frame(
+                action_state=result.get("action_state"),
+                cursor_pos=result.get("cursor_pos"),
+                mode=result.get("mode", "POINTER_NAV"),
+                action_executed=result.get("action_executed")
+            )
+
+            # Real-time console click logging
             action = result.get("action_executed")
             if action:
                 ts = time.strftime('%H:%M:%S')
@@ -94,7 +109,6 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:
-                # In headless orb mode, tiny sleep to yield CPU
                 time.sleep(0.001)
 
     except KeyboardInterrupt:
@@ -105,7 +119,23 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
         cv2.destroyAllWindows()
         if orb:
             orb.stop()
+        telemetry.close()
         print("[AeroTouch]: Hardware links safely released.")
+
+        # Trigger Autonomous Background Qwen Kinematic Optimization
+        print("\n[AeroTouch Cortex]: Analyzing session telemetry with local Qwen coach...")
+        try:
+            from src.cortex.session_analyst import SessionAnalyst
+            analyst = SessionAnalyst()
+            tune_result = analyst.analyze_latest_session()
+            status = tune_result.get("status")
+            if status == "tuned":
+                print(f"[Cortex Self-Tuning]: Adapted parameters: {tune_result.get('recommendations')}")
+            else:
+                reason = tune_result.get('reason', 'Precision nominal')
+                print(f"[Cortex Self-Tuning]: Status: {status} ({reason})")
+        except Exception as e:
+            print(f"[Cortex Self-Tuning]: Analysis deferred ({e})")
 
 
 if __name__ == "__main__":

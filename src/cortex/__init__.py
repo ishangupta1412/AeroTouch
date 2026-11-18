@@ -1,9 +1,10 @@
 """
 AeroTouch Cortex Subsystem
-Natural Language AI Copilot powered by local Ollama models (Qwen 2.5).
+Background Qwen-powered gesture precision self-tuner.
+Analyzes session telemetry and auto-adjusts parameters over time.
+No text commands. No Jarvis. Pure precision coaching.
 """
 
-from src.cortex.ollama_bridge import OllamaCortexAgent
-from src.cortex.tools import CortexOSTools
+from src.cortex.session_analyst import SessionAnalyst
 
-__all__ = ["OllamaCortexAgent", "CortexOSTools"]
+__all__ = ["SessionAnalyst"]

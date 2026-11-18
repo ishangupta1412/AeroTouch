@@ -3,21 +3,23 @@
 <div align="center">
 
 ### Autonomous Dual-Hand Spatial Operating Layer
-*Sub-millisecond touchless computer control powered by adaptive 1€ jitter filtering, bimanual gesture chording, and native Win32 input synthesis.*
+*Sub-millisecond touchless computer control powered by adaptive 1€ jitter filtering, bimanual gesture chording, native Win32 input synthesis, and a 21st.dev/Linear-grade Studio Cockpit.*
 
 <br/>
 
 [**Source Code**](https://github.com/ishangupta1412/AeroTouch) &nbsp;•&nbsp; 
 [**Architecture Spec**](#system-architecture) &nbsp;•&nbsp; 
+[**Studio Cockpit UI**](#studio-cockpit-ui) &nbsp;•&nbsp; 
 [**MIT License**](./LICENSE)
 
 <br/>
 
 `Python 3.12` &nbsp;•&nbsp; 
-`MediaPipe 3D Hands` &nbsp;•&nbsp; 
-`One Euro (1€) Dynamic Filter` &nbsp;•&nbsp; 
-`Win32 Ctypes Kernel` &nbsp;•&nbsp; 
-`Zero External Hardware`
+`React 19 + TypeScript` &nbsp;•&nbsp; 
+`Tailwind CSS` &nbsp;•&nbsp; 
+`MediaPipe Tasks 3D Hands` &nbsp;•&nbsp; 
+`1€ Dynamic Filter` &nbsp;•&nbsp; 
+`Win32 Ctypes Kernel`
 
 </div>
 
@@ -35,6 +37,21 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 
 ---
 
+## Studio Cockpit UI
+
+AeroTouch features a **21st.dev / Linear-grade dark cockpit** engineered with React 19, TypeScript, and Tailwind CSS.
+
+![AeroTouch Control Center](./docs/assets/aerotouch_control_center.png)
+
+### Key Cockpit Modules
+- **Optical Sensing Mirror**: Live webcam feed with glowing 3D landmark skeleton and dynamic pointer targeting reticle.
+- **Hardware Selector**: Instant switcher between Integrated Laptop Cam, USB Video Device, Mobile Phone (DroidCam/Iriun), and IP RTSP Streams.
+- **Bento Telemetry Cards**: Real-time left-hand mode status, right-hand pinch delta indicator, and sub-millisecond dispatch metrics.
+- **1€ Signal Tuning Sliders**: Fine-tune resting jitter cutoff ($f_{c,min}$), velocity-modulated coefficient ($\beta$), and ergonomic boundary padding.
+- **Elevated Keycap Remapper**: Customizable bimanual chord combinations mapped to native Windows shortcuts (`Win+Left`, `Win+Ctrl+Right`, `Win+D`).
+
+---
+
 ## System Architecture
 
 ```
@@ -45,7 +62,7 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
                                    ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │ 1. Vision Core: Dual-Hand 3D Landmark Extractor                  │
-│ • Simultaneous 42 3D landmark extraction (MediaPipe Hands)       │
+│ • Simultaneous 42 3D landmark extraction (MediaPipe Tasks)       │
 │ • Wrist-relative invariant coordinate transformation             │
 │ • Scale normalization: Distance / Wrist-to-MCP anchor            │
 └──────────────────────────────────┬───────────────────────────────┘
@@ -54,7 +71,7 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 ┌──────────────────────────────────────────────────────────────────┐
 │ 2. Signal Engine: 1€ (One Euro) Adaptive Dynamic Filter          │
 │ • Continuous velocity-based cutoff modulation: fc = fc_min + β|v|│
-│ • Damps high-frequency tremor when hand is static (< 0.5px noise)│
+│ • Damps high-frequency tremor when hand is static (< 0.25px noise│
 │ • Eliminates phase lag during high-velocity cursor sweeps        │
 └──────────────────────────────────┬───────────────────────────────┘
                                    │
@@ -92,11 +109,11 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 
 ```
 AeroTouch/
-├── src/
+├── src/                          # Core Python Engine
 │   ├── core/
 │   │   ├── one_euro_filter.py    # 1€ adaptive dynamic signal filter
 │   │   ├── calibrator.py         # Ergonomic 4-corner perspective mapper
-│   │   ├── tracker.py            # MediaPipe 3D dual-hand vision engine
+│   │   ├── tracker.py            # MediaPipe Tasks 3D dual-hand vision engine
 │   │   └── orchestrator.py       # End-to-end spatial event coordinator
 │   │
 │   ├── gestures/
@@ -107,7 +124,19 @@ AeroTouch/
 │   │
 │   └── main.py                   # 60 FPS real-time execution loop
 │
-├── tests/
+├── ui/                           # Studio Cockpit Dashboard (React 19 + Tailwind v4)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Sidebar.tsx           # Raycast/Linear collapsible navigation
+│   │   │   ├── BentoTelemetry.tsx    # Progress KPI telemetry cards
+│   │   │   ├── SensitivitySliders.tsx# 1€ filter tactile range sliders
+│   │   │   ├── DeviceSelector.tsx    # Hardware webcam / phone switcher
+│   │   │   ├── HotkeyRemapper.tsx    # Elevated <kbd> keycap configuration
+│   │   │   └── WebcamCanvas.tsx      # Real-time skeletal visualizer
+│   │   └── App.tsx                   # Master cockpit canvas
+│   └── package.json
+│
+├── tests/                        # Automated Verification Suite
 │   ├── test_filter.py            # Tremor damping verification (100% pass)
 │   ├── test_kernel.py            # Hardware resolution & keycode tests
 │   ├── test_bimanual.py          # Hysteresis debounce validation
@@ -122,25 +151,30 @@ AeroTouch/
 
 ## Local Development & Setup
 
-### Prerequisites
-- Python 3.10+ (Tested on Python 3.12, 64-bit Windows)
-- Standard RGB USB / Built-in Webcam (No depth camera required)
-
-### Quick Start
+### 1. Core Python Engine
 
 ```bash
-# 1. Clone repository
+# Clone repository
 git clone https://github.com/ishangupta1412/AeroTouch.git
 cd AeroTouch
 
-# 2. Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Run automated verification suite (10/10 tests)
+# Run automated verification suite (10/10 tests pass)
 python -m unittest discover -s tests -p "test_*.py"
 
-# 4. Launch AeroTouch spatial operating layer
+# Launch AeroTouch spatial operating layer
 python -m src.main
+```
+
+### 2. Studio Cockpit Dashboard
+
+```bash
+cd ui
+npm install
+npm run dev
+# Opens Studio Cockpit at http://localhost:5173
 ```
 
 ---
@@ -152,7 +186,7 @@ AeroTouch includes a deterministic test suite verifying mathematical correctness
 ```bash
 python -m unittest discover -s tests -p "test_*.py"
 # ..........
-# Ran 10 tests in 0.002s
+# Ran 10 tests in 0.013s
 # OK
 ```
 

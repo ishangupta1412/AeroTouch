@@ -16,3 +16,6 @@ ENV/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Binary AI Models (Auto-downloaded by tracker on first launch)
+*.task

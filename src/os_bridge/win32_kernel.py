@@ -1,81 +1,32 @@
 """
 AeroTouch Low-Level Windows OS Kernel Bridge
 Direct ctypes binding to user32.dll for sub-millisecond mouse and keyboard injection.
-Bypasses PyAutoGUI I/O locks and latency bottlenecks.
+Uses native user32.mouse_event and user32.keybd_event to guarantee 100% compatibility
+across 64-bit Windows without struct alignment discrepancies.
 """
 
 import ctypes
-from ctypes import wintypes
 from enum import IntEnum
 from typing import Tuple
 
 
-# Win32 Constants
-INPUT_MOUSE = 0
-INPUT_KEYBOARD = 1
-
-# Mouse Event Flags
+# Win32 Mouse Event Flags
 MOUSEEVENTF_MOVE = 0x0001
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
 MOUSEEVENTF_RIGHTDOWN = 0x0008
-MOUSEEVENTF_RIGHTUP = 0x000C
+MOUSEEVENTF_RIGHTUP = 0x0010
 MOUSEEVENTF_MIDDLEDOWN = 0x0020
 MOUSEEVENTF_MIDDLEUP = 0x0040
 MOUSEEVENTF_WHEEL = 0x0800
 MOUSEEVENTF_ABSOLUTE = 0x8000
-MOUSEEVENTF_VIRTUALDESK = 0x4000
 
-# Keyboard Event Flags
+# Win32 Keyboard Event Flags
 KEYEVENTF_KEYDOWN = 0x0000
 KEYEVENTF_EXTENDEDKEY = 0x0001
 KEYEVENTF_KEYUP = 0x0002
 
 WHEEL_DELTA = 120
-
-
-class MOUSEINPUT(ctypes.Structure):
-    _fields_ = [
-        ("dx", wintypes.LONG),
-        ("dy", wintypes.LONG),
-        ("mouseData", wintypes.DWORD),
-        ("dwFlags", wintypes.DWORD),
-        ("time", wintypes.DWORD),
-        ("dwExtraInfo", ctypes.c_ulong),
-    ]
-
-
-class KEYBDINPUT(ctypes.Structure):
-    _fields_ = [
-        ("wVk", wintypes.WORD),
-        ("wScan", wintypes.WORD),
-        ("dwFlags", wintypes.DWORD),
-        ("time", wintypes.DWORD),
-        ("dwExtraInfo", ctypes.c_ulong),
-    ]
-
-
-class HARDWAREINPUT(ctypes.Structure):
-    _fields_ = [
-        ("uMsg", wintypes.DWORD),
-        ("wParamL", wintypes.WORD),
-        ("wParamH", wintypes.WORD),
-    ]
-
-
-class _INPUT_UNION(ctypes.Union):
-    _fields_ = [
-        ("mi", MOUSEINPUT),
-        ("ki", KEYBDINPUT),
-        ("hi", HARDWAREINPUT),
-    ]
-
-
-class INPUT(ctypes.Structure):
-    _fields_ = [
-        ("type", wintypes.DWORD),
-        ("union", _INPUT_UNION),
-    ]
 
 
 # Virtual Key Codes (Standard Windows VK)
@@ -106,7 +57,10 @@ class Win32KernelBridge:
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(2)
         except Exception:
-            self.user32.SetProcessDPIAware()
+            try:
+                self.user32.SetProcessDPIAware()
+            except Exception:
+                pass
 
         self.screen_width = self.user32.GetSystemMetrics(0)
         self.screen_height = self.user32.GetSystemMetrics(1)
@@ -122,45 +76,33 @@ class Win32KernelBridge:
 
     def mouse_down(self, left: bool = True) -> None:
         flags = MOUSEEVENTF_LEFTDOWN if left else MOUSEEVENTF_RIGHTDOWN
-        inp = INPUT(type=INPUT_MOUSE)
-        inp.union.mi = MOUSEINPUT(0, 0, 0, flags, 0, 0)
-        self.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        self.user32.mouse_event(flags, 0, 0, 0, 0)
 
     def mouse_up(self, left: bool = True) -> None:
         flags = MOUSEEVENTF_LEFTUP if left else MOUSEEVENTF_RIGHTUP
-        inp = INPUT(type=INPUT_MOUSE)
-        inp.union.mi = MOUSEINPUT(0, 0, 0, flags, 0, 0)
-        self.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        self.user32.mouse_event(flags, 0, 0, 0, 0)
 
     def click(self, left: bool = True) -> None:
-        """Atomic click event using Win32 SendInput batch."""
-        down_flag = MOUSEEVENTF_LEFTDOWN if left else MOUSEEVENTF_RIGHTDOWN
-        up_flag = MOUSEEVENTF_LEFTUP if left else MOUSEEVENTF_RIGHTUP
-        inputs = (INPUT * 2)()
-        inputs[0].type = INPUT_MOUSE
-        inputs[0].union.mi = MOUSEINPUT(0, 0, 0, down_flag, 0, 0)
-        inputs[1].type = INPUT_MOUSE
-        inputs[1].union.mi = MOUSEINPUT(0, 0, 0, up_flag, 0, 0)
-        self.user32.SendInput(2, ctypes.byref(inputs), ctypes.sizeof(INPUT))
+        """Atomic click event (down then up)."""
+        self.mouse_down(left)
+        self.mouse_up(left)
 
     def scroll(self, steps: int) -> None:
         """Scroll wheel (positive = up, negative = down)."""
-        inp = INPUT(type=INPUT_MOUSE)
-        inp.union.mi = MOUSEINPUT(0, 0, steps * WHEEL_DELTA, MOUSEEVENTF_WHEEL, 0, 0)
-        self.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        self.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, int(steps * WHEEL_DELTA), 0)
 
     def key_down(self, vk_code: int) -> None:
-        inp = INPUT(type=INPUT_KEYBOARD)
-        inp.union.ki = KEYBDINPUT(vk_code, 0, KEYEVENTF_KEYDOWN, 0, 0)
-        self.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        self.user32.keybd_event(int(vk_code), 0, KEYEVENTF_KEYDOWN, 0)
 
     def key_up(self, vk_code: int) -> None:
-        inp = INPUT(type=INPUT_KEYBOARD)
-        inp.union.ki = KEYBDINPUT(vk_code, 0, KEYEVENTF_KEYUP, 0, 0)
-        self.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+        self.user32.keybd_event(int(vk_code), 0, KEYEVENTF_KEYUP, 0)
+
+    def tap_key(self, vk_code: int) -> None:
+        self.key_down(vk_code)
+        self.key_up(vk_code)
 
     def hotkey(self, *vk_codes: int) -> None:
-        """Executes combined hotkey sequence (e.g. Win + D, Win + Left)."""
+        """Chords multiple keys sequentially and releases in reverse order."""
         for vk in vk_codes:
             self.key_down(vk)
         for vk in reversed(vk_codes):

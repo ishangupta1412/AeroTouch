@@ -80,19 +80,23 @@ class DualHandTracker:
         left_hand: Optional[HandLandmarks] = None
 
         if detection_result.hand_landmarks and detection_result.handedness:
-            for idx, handedness_cat in enumerate(detection_result.handedness):
-                # category_name: 'Left' or 'Right'
-                label = handedness_cat[0].category_name
-                landmarks = detection_result.hand_landmarks[idx]
-
+            # If only one hand is visible, designate it as the primary pointer hand
+            if len(detection_result.hand_landmarks) == 1:
+                landmarks = detection_result.hand_landmarks[0]
                 pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
-                hand_obj = HandLandmarks(points=pts, handedness=label)
+                right_hand = HandLandmarks(points=pts, handedness="Right")
+            else:
+                # Two hands in view: split by MediaPipe handedness
+                for idx, handedness_cat in enumerate(detection_result.handedness):
+                    label = handedness_cat[0].category_name
+                    landmarks = detection_result.hand_landmarks[idx]
+                    pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
+                    hand_obj = HandLandmarks(points=pts, handedness=label)
 
-                # Mirror perspective: 'Right' in camera is physical right hand
-                if label == "Right":
-                    right_hand = hand_obj
-                else:
-                    left_hand = hand_obj
+                    if label == "Right":
+                        right_hand = hand_obj
+                    else:
+                        left_hand = hand_obj
 
         return right_hand, left_hand
 

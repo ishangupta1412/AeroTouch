@@ -11,6 +11,7 @@ import ctypes
 import winsound
 import subprocess
 from ctypes import wintypes
+from typing import Optional
 
 
 MOD_ALT = 0x0001

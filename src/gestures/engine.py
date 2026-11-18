@@ -85,9 +85,16 @@ class GestureMath:
         for tip, pip in pairs:
             if cls.is_finger_extended(hand, tip, pip):
                 count += 1
-        # Thumb check
-        if cls.euclidean_dist(hand.thumb_tip, hand.points[17]) > cls.euclidean_dist(hand.points[2], hand.points[17]):
+
+        # Thumb check: extended when tip is farther from wrist than thumb MCP (2) and pinky base (17)
+        wrist_to_thumb_tip = cls.euclidean_dist(hand.wrist, hand.thumb_tip)
+        wrist_to_thumb_mcp = cls.euclidean_dist(hand.wrist, hand.points[2])
+        thumb_span = cls.euclidean_dist(hand.thumb_tip, hand.points[17])
+        base_span = cls.euclidean_dist(hand.points[2], hand.points[17])
+
+        if (wrist_to_thumb_tip > wrist_to_thumb_mcp * 1.2) and (thumb_span > max(base_span * 1.1, 0.05)):
             count += 1
+
         return count
 
 

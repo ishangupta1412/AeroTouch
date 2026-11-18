@@ -34,14 +34,14 @@ class LowPassFilter:
 
 class OneEuroFilter:
     """
-    Adaptive 1€ dynamic filter for 1D spatial tracking signals.
+    Adaptive 1€ dynamic filter for 1D spatial tracking signals in normalized space [0.0, 1.0].
     Minimizes jitter at low speeds (min_cutoff=0.05Hz) and eliminates lag at high speeds.
     """
 
     def __init__(
         self,
         min_cutoff: float = 0.05,  # Lower cutoff kills stationary muscle tremor completely
-        beta: float = 0.012,       # Velocity scaling factor for fluid sweeps
+        beta: float = 4.0,         # Velocity scaling factor for normalized coordinates [0, 1]
         d_cutoff: float = 1.0      # Derivative cutoff frequency
     ):
         self.min_cutoff: float = float(min_cutoff)
@@ -64,7 +64,7 @@ class OneEuroFilter:
         self.last_time = None
 
     def filter(self, x: float, timestamp: Optional[float] = None) -> float:
-        """Filters noisy coordinate based on instantaneous movement velocity."""
+        """Filters coordinate based on instantaneous movement velocity."""
         if timestamp is None:
             timestamp = time.perf_counter()
 
@@ -103,7 +103,7 @@ class PrecisionSpatialFilter2D:
     def __init__(
         self,
         min_cutoff: float = 0.05,
-        beta: float = 0.015,
+        beta: float = 4.0,
         deadband: float = 0.0025  # Normalized deadband threshold (~4.8 screen pixels)
     ):
         self.filter_x = OneEuroFilter(min_cutoff=min_cutoff, beta=beta)
@@ -123,24 +123,28 @@ class PrecisionSpatialFilter2D:
         if timestamp is None:
             timestamp = time.perf_counter()
 
-        # Step 1: 1-Euro adaptive frequency filtering
-        filtered_x = self.filter_x.filter(x, timestamp)
-        filtered_y = self.filter_y.filter(y, timestamp)
-
-        # Step 2: Spatial Noise Gate (Deadband suppression)
+        # Initial frame bootstrap
         if self.last_output_x is None:
+            filtered_x = self.filter_x.filter(x, timestamp)
+            filtered_y = self.filter_y.filter(y, timestamp)
             self.last_output_x = filtered_x
             self.last_output_y = filtered_y
             return filtered_x, filtered_y
 
-        dist_sq = (filtered_x - self.last_output_x) ** 2 + (filtered_y - self.last_output_y) ** 2
+        # Step 1: Spatial Noise Gate (Deadband suppression against last stable cursor position)
+        dist_sq = (x - self.last_output_x) ** 2 + (y - self.last_output_y) ** 2
         deadband_sq = self.deadband ** 2
 
         if dist_sq < deadband_sq:
-            # Movement is below human physiological tremor threshold -> Lock position completely still
+            # Human tremor below noise gate threshold -> Lock position completely still
+            # Keep 1-Euro internal filters synced to prevent jump on release
+            self.filter_x.filter(self.last_output_x, timestamp)
+            self.filter_y.filter(self.last_output_y, timestamp)
             return self.last_output_x, self.last_output_y
 
-        # Intentional human motion detected -> update output smoothly
+        # Step 2: Intentional human movement -> apply 1-Euro adaptive frequency filtering
+        filtered_x = self.filter_x.filter(x, timestamp)
+        filtered_y = self.filter_y.filter(y, timestamp)
         self.last_output_x = filtered_x
         self.last_output_y = filtered_y
         return filtered_x, filtered_y

@@ -2,43 +2,53 @@
                          AEROTOUCH — QUICK USER GUIDE
 ================================================================================
 
-HOW TO RUN:
-1. Open PowerShell or Command Prompt.
-2. Go to the project folder:
-   cd "C:\Users\Ishan Gupta\.gemini\antigravity\scratch\AeroTouch"
-3. Run this single command:
+HOW TO START (SUPER EASY - 1 CLICK):
+--------------------------------------------------------------------------------
+Simply double-click "Start_AeroTouch.bat" on your Desktop!
+Or open terminal and run:
+   cd "C:\Users\Ishan Gupta\Desktop\AeroTouch"
    python -m src.main
 
+A camera window titled "AeroTouch Spatial Kernel" will open up.
+
 --------------------------------------------------------------------------------
-HOW TO CONTROL YOUR LAPTOP WITH HAND GESTURES:
+HOW TO CONTROL YOUR LAPTOP WITH GESTURES:
 --------------------------------------------------------------------------------
 
-1. MOVE CURSOR:
-   - Bring your RIGHT HAND in front of the webcam.
-   - Point your INDEX FINGER and move your hand.
-   - Your laptop mouse cursor will move smoothly in real time.
+1. MOUSE CURSOR MOVEMENT:
+   - Apne RIGHT HAND ko webcam ke aage laayein.
+   - Index finger point karke hawa me move karein.
+   - Screen par cursor smoothly move karega.
 
-2. LEFT CLICK:
-   - Pinch your INDEX FINGER and THUMB together quickly.
-   - Your laptop will register a standard Left Click.
+2. LEFT CLICK (Normal Click / Select / Open):
+   - Thumb aur Index Finger ke tips ko aapas me touch/pinch karein (👌 pinch gesture).
+   - Camera screen par green line banegi aur upar flash hoga:
+     >> LEFT CLICK <<
+   - Sensitivity ko 0.38 tak relax kar diya hai, toh halka pinch karte hi click ho jayega!
 
-3. RIGHT CLICK:
-   - Pinch your MIDDLE FINGER and THUMB together.
-   - Your laptop will open the Right Click context menu.
+3. RIGHT CLICK (Context Menu / Options):
+   - Thumb aur Middle Finger (beech wali ungli) ke tips ko touch/pinch karein.
+   - Camera screen par orange line banegi aur upar flash hoga:
+     >> RIGHT CLICK <<
 
-4. SNAP ACTIVE WINDOW TO LEFT HALF:
-   - Close your LEFT HAND into a FIST (✊).
-   - While holding the fist, PINCH with your RIGHT HAND.
-   - Windows will snap the active window to the left side (Win + Left Arrow).
+4. SNAP WINDOW TO LEFT (Multitasking):
+   - Apne LEFT HAND ki mutthi (fist ✊) banayein.
+   - Mutthi bane rehne par RIGHT HAND se pinch karein.
+   - Jo window khuli hai wo screen ke left half par snap ho jayegi (Win + Left).
 
-5. SWITCH TO NEXT VIRTUAL DESKTOP:
-   - Raise 3 FINGERS on your LEFT HAND.
-   - While holding 3 fingers, PINCH with your RIGHT HAND.
-   - Windows will flip to the next virtual desktop (Win + Ctrl + Right Arrow).
+5. SWITCH DESKTOP (Next Virtual Desktop):
+   - Apne LEFT HAND ki 3 ungliyan uthayein (3 fingers up).
+   - RIGHT HAND se pinch karein.
+   - Windows next virtual desktop pe switch ho jayega (Ctrl + Win + Right).
 
-6. HOW TO EXIT / STOP:
-   - Press the 'q' key on your keyboard, or press Ctrl + C in the terminal.
+6. HOW TO STOP / EXIT:
+   - Camera window pe click karke keyboard se 'q' press karein.
 
-================================================================================
-No browser or localhost needed. This directly controls your Windows 11 laptop!
+--------------------------------------------------------------------------------
+LIVE ON-SCREEN HUD (VISUAL FEEDBACK):
+--------------------------------------------------------------------------------
+- Camera window me aapki ungliyon ke upar live numeric distance dikhta hai:
+  "Pinch: 0.22 (Limit: 0.38)"
+- Jab bhi aapka pinch limit ke andar aata hai, screen par instant notification
+  flash hoti hai taaki aapko pata chale ki click register ho gaya!
 ================================================================================

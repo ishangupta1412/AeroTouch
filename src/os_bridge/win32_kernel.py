@@ -133,9 +133,15 @@ class Win32KernelBridge:
         self.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
 
     def click(self, left: bool = True) -> None:
-        """Atomic click event."""
-        self.mouse_down(left)
-        self.mouse_up(left)
+        """Atomic click event using Win32 SendInput batch."""
+        down_flag = MOUSEEVENTF_LEFTDOWN if left else MOUSEEVENTF_RIGHTDOWN
+        up_flag = MOUSEEVENTF_LEFTUP if left else MOUSEEVENTF_RIGHTUP
+        inputs = (INPUT * 2)()
+        inputs[0].type = INPUT_MOUSE
+        inputs[0].union.mi = MOUSEINPUT(0, 0, 0, down_flag, 0, 0)
+        inputs[1].type = INPUT_MOUSE
+        inputs[1].union.mi = MOUSEINPUT(0, 0, 0, up_flag, 0, 0)
+        self.user32.SendInput(2, ctypes.byref(inputs), ctypes.sizeof(INPUT))
 
     def scroll(self, steps: int) -> None:
         """Scroll wheel (positive = up, negative = down)."""

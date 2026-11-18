@@ -21,7 +21,7 @@ def run_aerotouch(camera_index: int = 0):
     w, h = orchestrator.kernel.get_screen_resolution()
     print(f"Hardware Monitor: {w}x{h} Native Native Win32 Subsystem Linked")
 
-    tracker = DualHandTracker(max_num_hands=2)
+    tracker = DualHandTracker(num_hands=2)
 
     cap = cv2.VideoCapture(camera_index)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)

@@ -7,6 +7,10 @@
 
 <br/>
 
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=python,opencv,windows,git,github" alt="AeroTouch Core Tech Stack" />
+</p>
+
 [**Source Code**](https://github.com/ishangupta1412/AeroTouch) &nbsp;•&nbsp; 
 [**System Architecture**](#system-architecture) &nbsp;•&nbsp; 
 [**Gesture Controls**](#bimanual-gesture-chording-matrix) &nbsp;•&nbsp; 
@@ -20,6 +24,16 @@
 `1€ Dynamic Filter` &nbsp;•&nbsp; 
 `Ollama Qwen 2.5 Coach` &nbsp;•&nbsp; 
 `Win32 Ctypes Kernel`
+
+</div>
+
+---
+
+<div align="center">
+
+![AeroTouch Real-Time Kinematics Demo](./assets/aerotouch_demo.gif)
+
+*Real-time spatial optical tracking · Dynamic Deadband Noise Gate · Multi-Frame Click Confirmation*
 
 </div>
 
@@ -39,6 +53,14 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 - **Continuous 1-Euro Frequency Modulation**: Modulates filter cutoff dynamically with movement velocity ($\beta = 4.0$ calibrated for normalized spatial coordinates).
 - **Background Kinematic Self-Tuning (Local Qwen)**: Analyzes session telemetry (pinch distance distribution, tremor variance) and auto-tunes parameters to fit individual hand geometry.
 - **Ambient Floating Orb**: Optional minimal, borderless, semi-transparent circular indicator (Gemini Live style) that reflects tracking status and click events without obstructing the screen.
+
+<div align="center">
+
+<img src="./assets/floating_orb.gif" alt="Ambient Floating Orb" width="120" />
+
+*Ambient glass orb with reactive state illumination*
+
+</div>
 
 ---
 
@@ -139,6 +161,10 @@ AeroTouch/
 │   │   └── floating_orb.py       # Gemini Live style ambient floating glass orb
 │   │
 │   └── main.py                   # 60 FPS real-time execution loop
+│
+├── assets/                       # Visual assets & diagrams
+│   ├── aerotouch_demo.gif        # Real-time tracking & deadband demonstration GIF
+│   └── floating_orb.gif          # Ambient breathing glass orb animation GIF
 │
 ├── tests/                        # Automated Verification Suite (23/23 Passing)
 │   ├── test_filter.py            # Tremor damping & deadband noise gate verification

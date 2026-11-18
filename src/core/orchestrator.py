@@ -49,12 +49,14 @@ class SpatialOrchestrator:
         result_summary = {
             "mode": left_mode.name,
             "cursor_pos": None,
-            "action_executed": None
+            "action_executed": None,
+            "action_state": None
         }
 
         # Step 2: Right-hand execution
         if right_hand is not None:
             action_state = self.engine.evaluate_right_action(right_hand, now=timestamp)
+            result_summary["action_state"] = action_state
             norm_x = action_state["cursor_x"]
             norm_y = action_state["cursor_y"]
 

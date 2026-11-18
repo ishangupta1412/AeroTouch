@@ -97,7 +97,7 @@ class BimanualEngine:
     Solves the HandWave 3s freeze bug using asynchronous hysteresis debounce.
     """
 
-    def __init__(self, pinch_threshold: float = 0.28, debounce_seconds: float = 0.15):
+    def __init__(self, pinch_threshold: float = 0.38, debounce_seconds: float = 0.18):
         self.pinch_threshold = pinch_threshold
         self.debounce_seconds = debounce_seconds
 
@@ -150,25 +150,29 @@ class BimanualEngine:
         click_event = None
         right_click_event = None
 
-        if norm_pinch < self.pinch_threshold:
+        # Check Left Click (Index Tip + Thumb)
+        if norm_pinch < self.pinch_threshold and norm_pinch < norm_middle_pinch:
             if not self.is_pinching and (now - self.last_click_time > self.debounce_seconds):
                 self.is_pinching = True
                 self.last_click_time = now
                 click_event = "LEFT_CLICK"
-        elif norm_middle_pinch < self.pinch_threshold:
+        # Check Right Click (Middle Tip + Thumb)
+        elif norm_middle_pinch < self.pinch_threshold and norm_middle_pinch < norm_pinch:
             if not self.is_pinching and (now - self.last_click_time > self.debounce_seconds):
                 self.is_pinching = True
                 self.last_click_time = now
                 right_click_event = "RIGHT_CLICK"
         else:
             # Reset pinch state smoothly when fingers separate
-            if norm_pinch > self.pinch_threshold * 1.25:
+            if norm_pinch > self.pinch_threshold * 1.2 and norm_middle_pinch > self.pinch_threshold * 1.2:
                 self.is_pinching = False
 
         return {
             "cursor_x": raw_x,
             "cursor_y": raw_y,
             "cursor_z": raw_z,
+            "pinch_distance": norm_pinch,
+            "middle_pinch_distance": norm_middle_pinch,
             "is_pinching": self.is_pinching,
             "click_event": click_event,
             "right_click_event": right_click_event,

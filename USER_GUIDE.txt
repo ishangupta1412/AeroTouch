@@ -2,10 +2,16 @@
                          AEROTOUCH — QUICK USER GUIDE
 ================================================================================
 
-HOW TO START (SUPER EASY - 1 CLICK):
+HOW TO START (3 WAYS):
 --------------------------------------------------------------------------------
-Simply double-click "Start_AeroTouch.bat" on your Desktop!
-Or open terminal and run:
+1. GLOBAL KEYBOARD SHORTCUT (FASTEST):
+   Press: Ctrl + Alt + A from anywhere in Windows!
+   AeroTouch will immediately launch.
+
+2. 1-CLICK LAUNCHER:
+   Double-click "AeroTouch" (or "Start_AeroTouch.bat") on your Desktop!
+
+3. TERMINAL LAUNCH:
    cd "C:\Users\Ishan Gupta\OneDrive\Desktop\AeroTouch"
    python -m src.main
 

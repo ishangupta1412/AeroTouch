@@ -1,5 +1,5 @@
 ================================================================================
-                         AEROTOUCH — QUICK USER GUIDE (v2.0)
+                         AEROTOUCH — QUICK USER GUIDE
 ================================================================================
 
 HOW TO START (3 WAYS):
@@ -19,7 +19,7 @@ HOW TO START (3 WAYS):
 A camera window titled "AeroTouch Spatial Kernel" will open up.
 
 --------------------------------------------------------------------------------
-HOW TO CONTROL YOUR LAPTOP WITH GESTURES (PRECISION v2.0):
+HOW TO CONTROL YOUR LAPTOP WITH GESTURES:
 --------------------------------------------------------------------------------
 
 1. MOUSE CURSOR MOVEMENT (ROCK-SOLID STILLNESS):

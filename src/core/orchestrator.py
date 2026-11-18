@@ -1,5 +1,5 @@
 """
-AeroTouch Spatial Orchestrator & Event Loop (Precision v2.0)
+AeroTouch Spatial Orchestrator & Event Loop
 Harmonizes Camera Vision, Deadband Jitter Filtering, Coordinate Projection, and Direct Win32 OS Dispatch.
 Supports adaptive profile loading tuned by Qwen background coach.
 """
@@ -18,7 +18,7 @@ from src.os_bridge.win32_kernel import VirtualKey, Win32KernelBridge
 class SpatialOrchestrator:
     """
     Central loop coordinator executing sub-millisecond gesture-to-OS commands.
-    Precision v2.0: Deadband noise gate + multi-frame click confirmation.
+    Features deadband noise gate and multi-frame click confirmation.
     Auto-loads adaptive user profile parameters tuned by local Qwen.
     """
 

@@ -34,7 +34,7 @@ class TestBimanualEngine(unittest.TestCase):
         self.assertLess(GestureMath.normalized_pinch_distance(hand_pinched), 0.05)
 
     def test_single_frame_does_not_click(self):
-        """Precision v2.0: A single frame with pinch must NOT fire click (ghost-click prevention)."""
+        """A single frame with pinch must NOT fire click (ghost-click prevention)."""
         hand_pinched = self._make_dummy_hand(pinch=True)
 
         res1 = self.engine.evaluate_right_action(hand_pinched, now=10.0)
@@ -43,7 +43,7 @@ class TestBimanualEngine(unittest.TestCase):
         self.assertEqual(self.engine.pinch_streak, 1)
 
     def test_multi_frame_confirmation_fires_click(self):
-        """Precision v2.0: Sustained pinch across confirm_frames (2) DOES fire click."""
+        """Sustained pinch across confirm_frames (2) DOES fire click."""
         hand_pinched = self._make_dummy_hand(pinch=True)
 
         # Frame 1: streak builds to 1, no click

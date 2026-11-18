@@ -3,22 +3,21 @@
 <div align="center">
 
 ### Autonomous Dual-Hand Spatial Operating Layer
-*Sub-millisecond touchless computer control powered by adaptive 1€ jitter filtering, velocity deadband noise gating, bimanual gesture chording, local Qwen background kinematic tuning, and a 21st.dev/Linear-grade Studio Cockpit.*
+*Sub-millisecond touchless computer control powered by adaptive 1€ jitter filtering, velocity deadband noise gating, bimanual gesture chording, and local Qwen background kinematic tuning.*
 
 <br/>
 
 [**Source Code**](https://github.com/ishangupta1412/AeroTouch) &nbsp;•&nbsp; 
-[**Precision v2.0 Architecture**](#system-architecture) &nbsp;•&nbsp; 
-[**Studio Cockpit UI**](#studio-cockpit-ui) &nbsp;•&nbsp; 
+[**System Architecture**](#system-architecture) &nbsp;•&nbsp; 
+[**Gesture Controls**](#bimanual-gesture-chording-matrix) &nbsp;•&nbsp; 
 [**MIT License**](./LICENSE)
 
 <br/>
 
 `Python 3.12` &nbsp;•&nbsp; 
-`React 19 + TypeScript` &nbsp;•&nbsp; 
-`Tailwind CSS` &nbsp;•&nbsp; 
 `MediaPipe Tasks 3D Hands` &nbsp;•&nbsp; 
 `Velocity Deadband Gate` &nbsp;•&nbsp; 
+`1€ Dynamic Filter` &nbsp;•&nbsp; 
 `Ollama Qwen 2.5 Coach` &nbsp;•&nbsp; 
 `Win32 Ctypes Kernel`
 
@@ -34,26 +33,12 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 2. **The Ghost-Click Defect**: Single-frame thresholding causes accidental, phantom clicks whenever the camera captures a noisy landmark frame.
 3. **The Blocking Sleep Freeze**: Naive scripts use `time.sleep()` on click triggers to debounce, freezing the cursor and breaking user interaction continuity.
 
-**AeroTouch Precision v2.0** solves these challenges through a multi-stage architecture:
+**AeroTouch** solves these challenges through a multi-stage architecture:
 - **Dynamic Velocity Deadband Gate**: Locks the cursor completely still when hand movement is below human tremor thresholds (< 4.8 px).
 - **Multi-Frame Temporal Confirmation**: Enforces 2 consecutive qualifying frames before firing clicks, eradicating phantom triggers.
 - **Continuous 1-Euro Frequency Modulation**: Modulates filter cutoff dynamically with movement velocity ($\beta = 4.0$ calibrated for normalized spatial coordinates).
 - **Background Kinematic Self-Tuning (Local Qwen)**: Analyzes session telemetry (pinch distance distribution, tremor variance) and auto-tunes parameters to fit individual hand geometry.
-
----
-
-## Studio Cockpit UI
-
-AeroTouch features a **21st.dev / Linear-grade dark cockpit** engineered with React 19, TypeScript, and Tailwind CSS.
-
-![AeroTouch Control Center](./docs/assets/aerotouch_control_center.png)
-
-### Key Cockpit Modules
-- **Optical Sensing Mirror**: Live webcam feed with glowing 3D landmark skeleton and dynamic pointer targeting reticle.
-- **Hardware Selector**: Instant switcher between Integrated Laptop Cam, USB Video Device, Mobile Phone (DroidCam/Iriun), and IP RTSP Streams.
-- **Bento Telemetry Cards**: Real-time left-hand mode status, right-hand pinch delta indicator, and sub-millisecond dispatch metrics.
-- **1€ Signal Tuning Sliders**: Fine-tune resting jitter cutoff ($f_{c,min}$), velocity-modulated coefficient ($\beta$), and ergonomic boundary padding.
-- **Elevated Keycap Remapper**: Customizable bimanual chord combinations mapped to native Windows shortcuts (`Win+Left`, `Win+Ctrl+Right`, `Win+D`).
+- **Ambient Floating Orb**: Optional minimal, borderless, semi-transparent circular indicator (Gemini Live style) that reflects tracking status and click events without obstructing the screen.
 
 ---
 
@@ -111,7 +96,7 @@ AeroTouch features a **21st.dev / Linear-grade dark cockpit** engineered with Re
 
 | Operational Mode | Left Hand (System Modifier) | Right Hand (Action Trigger) | Operating System Action |
 | :--- | :--- | :--- | :--- |
-| **Precision Mouse** | Resting / Out of frame | Index Tip + Thumb Pinch | 60 FPS smoothed cursor + instant left click |
+| **Precision Mouse** | Resting / Out of frame | Index Tip + Thumb Pinch | 60 FPS smoothed cursor + intentional left click |
 | **Context Menu** | Resting / Out of frame | Middle Tip + Thumb Pinch | Native Right Click (`VK_RBUTTON`) |
 | **Window Snapping** | Closed Fist (Grab active app) | Index Pinch | Snap window to half-screen (`Win + Left`) |
 | **Virtual Desktop Flip**| Three Fingers Extended | Index Pinch | Switch to next Virtual Desktop (`Win + Ctrl + Right`) |
@@ -155,18 +140,6 @@ AeroTouch/
 │   │
 │   └── main.py                   # 60 FPS real-time execution loop
 │
-├── ui/                           # Studio Cockpit Dashboard (React 19 + Tailwind v4)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Sidebar.tsx           # Raycast/Linear collapsible navigation
-│   │   │   ├── BentoTelemetry.tsx    # Progress KPI telemetry cards
-│   │   │   ├── SensitivitySliders.tsx# 1€ filter tactile range sliders
-│   │   │   ├── DeviceSelector.tsx    # Hardware webcam / phone switcher
-│   │   │   ├── HotkeyRemapper.tsx    # Elevated keycap configuration
-│   │   │   └── WebcamCanvas.tsx      # Real-time skeletal visualizer
-│   │   └── App.tsx                   # Master cockpit canvas
-│   └── package.json
-│
 ├── tests/                        # Automated Verification Suite (23/23 Passing)
 │   ├── test_filter.py            # Tremor damping & deadband noise gate verification
 │   ├── test_bimanual.py          # Multi-frame confirmation & debounce validation
@@ -191,7 +164,7 @@ AeroTouch/
 
 ## Local Development & Setup
 
-### 1. Core Python Engine
+### Core Python Engine
 
 ```bash
 # Clone repository
@@ -211,15 +184,6 @@ python -m src.main
 python -m src.main --orb
 ```
 
-### 2. Studio Cockpit Dashboard
-
-```bash
-cd ui
-npm install
-npm run dev
-# Opens Studio Cockpit at http://localhost:5173
-```
-
 ---
 
 ## Engineering Verification Loop
@@ -231,7 +195,7 @@ python -m unittest discover -s tests -p "test_*.py" -v
 # Ran 23 tests in 0.041s
 # OK
 # [Hardware Detected]: Display Resolution = 1920x1080
-# [Micro-MLP Benchmark]: 0.082 ms per prediction (12231 FPS capability)
+# [Micro-MLP Benchmark]: 0.082 ms per prediction (12232 FPS capability)
 ```
 
 ---

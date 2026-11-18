@@ -1,5 +1,5 @@
 """
-AeroTouch CLI & Execution Entrypoint (Precision Architecture v2.0)
+AeroTouch CLI & Execution Entrypoint
 Starts the 60 FPS real-time touchless spatial OS control loop.
 Zero-lag direct Win32 synthesis with Deadband Jitter Gate and Multi-Frame Confirmation.
 Supports Ambient Floating Orb overlay (Gemini Live style).

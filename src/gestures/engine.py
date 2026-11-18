@@ -1,5 +1,5 @@
 """
-AeroTouch Bimanual Gesture & Kinematic Engine (Precision v2.0)
+AeroTouch Bimanual Gesture & Kinematic Engine
 Scale-invariant 3D vector geometry with Multi-Frame Temporal Confirmation.
 Eliminates random false-positive clicks and stabilizes spatial interaction.
 """

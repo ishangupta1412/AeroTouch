@@ -8,7 +8,7 @@
 <br/>
 
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=python,opencv,windows,git,github" alt="AeroTouch Core Tech Stack" />
+  <img src="https://skillicons.dev/icons?i=python,opencv" alt="AeroTouch Core Tech Stack" />
 </p>
 
 [**Source Code**](https://github.com/ishangupta1412/AeroTouch) &nbsp;•&nbsp; 

@@ -1,0 +1,44 @@
+================================================================================
+                         AEROTOUCH — QUICK USER GUIDE
+================================================================================
+
+HOW TO RUN:
+1. Open PowerShell or Command Prompt.
+2. Go to the project folder:
+   cd "C:\Users\Ishan Gupta\.gemini\antigravity\scratch\AeroTouch"
+3. Run this single command:
+   python -m src.main
+
+--------------------------------------------------------------------------------
+HOW TO CONTROL YOUR LAPTOP WITH HAND GESTURES:
+--------------------------------------------------------------------------------
+
+1. MOVE CURSOR:
+   - Bring your RIGHT HAND in front of the webcam.
+   - Point your INDEX FINGER and move your hand.
+   - Your laptop mouse cursor will move smoothly in real time.
+
+2. LEFT CLICK:
+   - Pinch your INDEX FINGER and THUMB together quickly.
+   - Your laptop will register a standard Left Click.
+
+3. RIGHT CLICK:
+   - Pinch your MIDDLE FINGER and THUMB together.
+   - Your laptop will open the Right Click context menu.
+
+4. SNAP ACTIVE WINDOW TO LEFT HALF:
+   - Close your LEFT HAND into a FIST (✊).
+   - While holding the fist, PINCH with your RIGHT HAND.
+   - Windows will snap the active window to the left side (Win + Left Arrow).
+
+5. SWITCH TO NEXT VIRTUAL DESKTOP:
+   - Raise 3 FINGERS on your LEFT HAND.
+   - While holding 3 fingers, PINCH with your RIGHT HAND.
+   - Windows will flip to the next virtual desktop (Win + Ctrl + Right Arrow).
+
+6. HOW TO EXIT / STOP:
+   - Press the 'q' key on your keyboard, or press Ctrl + C in the terminal.
+
+================================================================================
+No browser or localhost needed. This directly controls your Windows 11 laptop!
+================================================================================

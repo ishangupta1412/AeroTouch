@@ -192,6 +192,18 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ---
 
+## Star History
+
+<div align="center">
+
+[![Star History Chart](https://api.star-history.com/svg?repos=ishangupta1412/AeroTouch&type=Date)](https://star-history.com/#ishangupta1412/AeroTouch&Date)
+
+<sub>Live real-time telemetry chart tracked automatically via GitHub API</sub>
+
+</div>
+
+---
+
 ## License & Attribution
 
 - **Architect & Author**: [Ishan Gupta](https://github.com/ishangupta1412) ([LinkedIn](https://www.linkedin.com/in/ishan14md) • [X](https://x.com/itsishan14))

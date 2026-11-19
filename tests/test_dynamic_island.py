@@ -1,10 +1,21 @@
 import unittest
-from src.ui.dynamic_island import DynamicIslandOverlay
+from src.ui.dynamic_island import DynamicIslandOverlay, SpringPhysics
 
 
 class TestDynamicIsland(unittest.TestCase):
     def setUp(self):
         self.island = DynamicIslandOverlay()
+
+    def test_spring_physics_convergence(self):
+        spring = SpringPhysics(stiffness=340.0, damping=28.0, mass=0.8, initial_pos=180.0)
+        spring.target = 260.0
+
+        # Step spring over 60 frames (1 second at 60 FPS)
+        for _ in range(60):
+            spring.update(dt=0.016)
+
+        # Spring must smoothly converge to target (within 1.0 unit)
+        self.assertAlmostEqual(spring.pos, 260.0, delta=1.5)
 
     def test_initial_geometry_and_state(self):
         self.assertEqual(self.island.system_state, "ACTIVE")

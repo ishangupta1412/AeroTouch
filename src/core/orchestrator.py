@@ -13,6 +13,8 @@ from src.core.calibrator import ScreenSpaceMapper
 from src.core.one_euro_filter import PrecisionSpatialFilter2D
 from src.gestures.engine import BimanualEngine, HandLandmarks, HandMode
 from src.os_bridge.win32_kernel import VirtualKey, Win32KernelBridge
+from src.service.window_dragger import WindowDragger
+from src.os_bridge.volume_control import MediaScalarController
 
 
 class SpatialOrchestrator:
@@ -42,10 +44,12 @@ class SpatialOrchestrator:
             confirm_frames=int(profile.get("confirm_frames", 2))      # Multi-frame confirmation
         )
 
+        self.dragger = WindowDragger()
+        self.media_ctrl = MediaScalarController()
         self.last_snap_time: float = 0.0
 
     def _load_profile(self, profile_path: Optional[str] = None) -> Dict[str, any]:
-        """Loads learned parameters from disk or defaults."""
+        """Loads configuration from config.toml and adaptive user_profile.json."""
         defaults = {
             "min_cutoff": 0.05,
             "beta": 0.015,
@@ -56,8 +60,30 @@ class SpatialOrchestrator:
             "confirm_frames": 2
         }
 
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        toml_path = os.path.join(base_dir, "config.toml")
+
+        # 1. Load config.toml if present
+        if os.path.exists(toml_path):
+            try:
+                import tomllib
+                with open(toml_path, "rb") as f:
+                    cfg = tomllib.load(f)
+                    if "filter" in cfg:
+                        for k in ["min_cutoff", "beta", "deadband"]:
+                            if k in cfg["filter"]:
+                                defaults[k] = float(cfg["filter"][k])
+                    if "gestures" in cfg:
+                        for k in ["pinch_threshold", "release_threshold", "debounce_seconds"]:
+                            if k in cfg["gestures"]:
+                                defaults[k] = float(cfg["gestures"][k])
+                        if "confirm_frames" in cfg["gestures"]:
+                            defaults["confirm_frames"] = int(cfg["gestures"]["confirm_frames"])
+            except Exception:
+                pass
+
+        # 2. Overlay adaptive profile if present
         if profile_path is None:
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             profile_path = os.path.join(base_dir, "data", "user_profile.json")
 
         if os.path.exists(profile_path):
@@ -112,6 +138,27 @@ class SpatialOrchestrator:
 
             # Move hardware cursor via direct Win32 API
             self.kernel.move_cursor(screen_x, screen_y)
+
+            # Continuous Media Scalar Control (Volume)
+            if left_mode == HandMode.MEDIA_CONTROL:
+                vol = self.media_ctrl.apply_volume(action_state["pinch_distance"])
+                if vol is not None:
+                    result_summary["action_executed"] = f"VOLUME_SCALAR_{int(vol * 100)}"
+
+            # Fist-based Spatial Window Dragging
+            fist_ev = action_state.get("fist_event")
+            if fist_ev == "DRAG_START":
+                hwnd = self.kernel.get_foreground_window()
+                rect = self.kernel.get_window_rect(hwnd)
+                self.dragger.start_drag(hwnd, rect, screen_x, screen_y)
+                result_summary["action_executed"] = "WINDOW_DRAG_START"
+            elif action_state.get("is_fist") and self.dragger.is_dragging:
+                hwnd, new_x, new_y, w, h = self.dragger.update_drag(screen_x, screen_y)
+                self.kernel.move_window(hwnd, new_x, new_y, w, h)
+                result_summary["action_executed"] = "WINDOW_DRAG_MOVE"
+            elif fist_ev == "DRAG_END" and self.dragger.is_dragging:
+                self.dragger.end_drag()
+                result_summary["action_executed"] = "WINDOW_DRAG_END"
 
             # Handle Actions & Left-Hand Compound Modifiers
             if action_state["click_event"] == "LEFT_CLICK":

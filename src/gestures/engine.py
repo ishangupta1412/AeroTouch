@@ -9,12 +9,16 @@ import time
 from enum import Enum, auto
 from typing import Tuple, List, Optional, Dict
 
-
 class HandMode(Enum):
     POINTER_NAV = auto()     # Standard cursor movement & navigation
     WINDOW_SNAP = auto()     # Left fist held: snap active window to left/right
     MEDIA_CONTROL = auto()   # Left two-finger peace: volume & media adjustment
     DESKTOP_SWITCH = auto()  # Left three-finger open: virtual desktop flipping
+
+
+class FistState(Enum):
+    OPEN = auto()     # Hand is open — no drag
+    CLOSED = auto()   # Fist detected — drag active
 
 
 class HandLandmarks:
@@ -97,6 +101,15 @@ class GestureMath:
 
         return count
 
+    @classmethod
+    def is_fist(cls, hand: HandLandmarks, fist_threshold: int = 1) -> bool:
+        """
+        Returns True when the hand is a closed fist.
+        Fist = at most `fist_threshold` fingers extended.
+        A natural resting fist (thumb tucked or to the side) = 0 or 1 fingers extended.
+        """
+        return cls.count_extended_fingers(hand) <= fist_threshold
+
 
 class BimanualEngine:
     """
@@ -124,6 +137,12 @@ class BimanualEngine:
         self.middle_pinch_streak: int = 0
         self.last_click_time: float = 0.0
         self.current_left_mode: HandMode = HandMode.POINTER_NAV
+
+        # Fist-drag state (multi-frame confirmed for stability)
+        self.fist_streak: int = 0
+        self.fist_release_streak: int = 0
+        self.is_fist_active: bool = False
+        self._fist_confirm_frames: int = max(2, confirm_frames)
 
     def evaluate_left_modifier(self, left_hand: Optional[HandLandmarks]) -> HandMode:
         """Interprets Left Hand gesture to set the current System Modifier Mode."""
@@ -160,9 +179,25 @@ class BimanualEngine:
 
         click_event = None
         right_click_event = None
+        fist_event = None
 
-        is_index_candidate = (norm_pinch < self.pinch_threshold) and (norm_pinch <= norm_middle_pinch)
-        is_middle_candidate = (norm_middle_pinch < self.pinch_threshold) and (norm_middle_pinch < norm_pinch)
+        # Fist Detection State Machine
+        raw_is_fist = GestureMath.is_fist(right_hand)
+        if raw_is_fist:
+            self.fist_streak += 1
+            self.fist_release_streak = 0
+            if self.fist_streak >= self._fist_confirm_frames and not self.is_fist_active:
+                self.is_fist_active = True
+                fist_event = "DRAG_START"
+        else:
+            self.fist_release_streak += 1
+            self.fist_streak = 0
+            if self.fist_release_streak >= self._fist_confirm_frames and self.is_fist_active:
+                self.is_fist_active = False
+                fist_event = "DRAG_END"
+
+        is_index_candidate = (norm_pinch < self.pinch_threshold) and (norm_pinch <= norm_middle_pinch) and not self.is_fist_active
+        is_middle_candidate = (norm_middle_pinch < self.pinch_threshold) and (norm_middle_pinch < norm_pinch) and not self.is_fist_active
 
         # Track consecutive candidate frames for temporal stability
         if is_index_candidate:
@@ -195,13 +230,19 @@ class BimanualEngine:
                 self.pinch_streak = 0
                 self.middle_pinch_streak = 0
 
+        # Continuous scalar for media / brightness / zoom (0.0 open -> 1.0 tight pinch)
+        pinch_scalar = max(0.0, min(1.0, 1.0 - (norm_pinch / 0.6)))
+
         return {
             "cursor_x": raw_x,
             "cursor_y": raw_y,
             "cursor_z": raw_z,
             "pinch_distance": norm_pinch,
             "middle_pinch_distance": norm_middle_pinch,
+            "pinch_scalar": pinch_scalar,
             "is_pinching": self.is_pinching,
+            "is_fist": self.is_fist_active,
+            "fist_event": fist_event,
             "click_event": click_event,
             "right_click_event": right_click_event,
             "left_mode": self.current_left_mode

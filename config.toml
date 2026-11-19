@@ -1,0 +1,18 @@
+# AeroTouch Spatial Engine Configuration
+
+[filter]
+# One Euro Filter parameters
+min_cutoff = 0.05       # Rock-solid stillness at rest (dampens micro-tremor)
+beta = 0.015            # Dynamic speed response for rapid sweeps
+deadband = 0.0025       # Minimum normalized movement delta to unfreeze cursor (~4.8px on 1080p)
+
+[gestures]
+# Pinch & fist trigger thresholds (scale-invariant 3D normalized distance)
+pinch_threshold = 0.28    # Normalized distance below which click activates
+release_threshold = 0.38  # Normalized distance above which click releases (hysteresis gap)
+debounce_seconds = 0.20   # Cooldown between clicks (seconds)
+confirm_frames = 2        # Consecutive frames required to confirm gesture (kills phantom clicks)
+
+[hardware]
+camera_index = 0
+target_fps = 60

@@ -107,3 +107,30 @@ class Win32KernelBridge:
             self.key_down(vk)
         for vk in reversed(vk_codes):
             self.key_up(vk)
+
+    def get_foreground_window(self) -> int:
+        """Returns HWND of the currently active foreground window."""
+        return self.user32.GetForegroundWindow()
+
+    def get_window_rect(self, hwnd: int) -> tuple:
+        """Returns (left, top, right, bottom) of the window in screen pixels."""
+        import ctypes
+        class RECT(ctypes.Structure):
+            _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                        ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+        rect = RECT()
+        self.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+        return (rect.left, rect.top, rect.right, rect.bottom)
+
+    def move_window(self, hwnd: int, x: int, y: int, w: int, h: int) -> None:
+        """Moves and resizes a window via MoveWindow Win32 call."""
+        SWP_NOSIZE = 0x0001
+        SWP_NOZORDER = 0x0004
+        SWP_NOACTIVATE = 0x0010
+        self.user32.SetWindowPos(hwnd, 0, int(x), int(y), int(w), int(h),
+                                 SWP_NOZORDER | SWP_NOACTIVATE)
+
+    def restore_window(self, hwnd: int) -> None:
+        """Restores a maximized window so it can be dragged freely."""
+        SW_RESTORE = 9
+        self.user32.ShowWindow(hwnd, SW_RESTORE)

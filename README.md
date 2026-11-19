@@ -120,6 +120,8 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 | :--- | :--- | :--- | :--- |
 | **Precision Mouse** | Resting / Out of frame | Index Tip + Thumb Pinch | 60 FPS smoothed cursor + intentional left click |
 | **Context Menu** | Resting / Out of frame | Middle Tip + Thumb Pinch | Native Right Click (`VK_RBUTTON`) |
+| **Spatial Window Drag** | Resting / Out of frame | Closed Fist (Hold & Move) | Grabs foreground window in 3D, follows hand delta; release fist to drop |
+| **Continuous Audio/Volume** | Two-Finger Peace Sign (`V`) | Variable Thumb-Index Pinch | Smooth real-time volume slider (0% to 100% via direct Core Audio) |
 | **Window Snapping** | Closed Fist (Grab active app) | Index Pinch | Snap window to half-screen (`Win + Left`) |
 | **Virtual Desktop Flip**| Three Fingers Extended | Index Pinch | Switch to next Virtual Desktop (`Win + Ctrl + Right`) |
 | **Emergency Desktop** | Open Palm Forward | Crossed Wrists | Minimize all windows / Show Desktop (`Win + D`) |
@@ -151,9 +153,11 @@ AeroTouch/
 │   │   └── session_logger.py     # Per-frame JSONL telemetry recorder
 │   │
 │   ├── os_bridge/
-│   │   └── win32_kernel.py       # Native user32.dll direct input synthesis
+│   │   ├── win32_kernel.py       # Native user32.dll direct input synthesis & window hooks
+│   │   └── volume_control.py     # Continuous Core Audio & Brightness scalar controller
 │   │
 │   ├── service/
+│   │   ├── window_dragger.py     # Fist-drag spatial window repositioning state machine
 │   │   ├── hotkey_daemon.py      # Win32 RegisterHotKey daemon (Ctrl + Alt + A)
 │   │   └── setup_hotkey.py       # Desktop & Start Menu shortcut registrar
 │   │
@@ -166,10 +170,12 @@ AeroTouch/
 │   ├── aerotouch_demo.gif        # Real-time tracking & deadband demonstration GIF
 │   └── floating_orb.gif          # Ambient breathing glass orb animation GIF
 │
-├── tests/                        # Automated Verification Suite (23/23 Passing)
+├── tests/                        # Automated Verification Suite (34/34 Passing)
 │   ├── test_filter.py            # Tremor damping & deadband noise gate verification
 │   ├── test_bimanual.py          # Multi-frame confirmation & debounce validation
 │   ├── test_orchestrator.py      # End-to-end spatial pipeline & window snap test
+│   ├── test_window_dragger.py    # Fist window drag & geometry delta tests
+│   ├── test_volume_control.py    # Continuous audio/brightness scalar & deadband tests
 │   ├── test_telemetry.py         # Telemetry logging & Qwen JSON parsing tests
 │   ├── test_calibrator.py        # Screen corner reachability verification
 │   ├── test_kernel.py            # Hardware resolution & keycode tests
@@ -179,6 +185,7 @@ AeroTouch/
 ├── models/
 │   └── aerotouch-qwen/           # Custom Ollama Modelfile for kinematic optimization
 │
+├── config.toml                   # Intuitive user-facing threshold & sensitivity config
 ├── Start_AeroTouch.bat           # 1-Click launcher
 ├── Start_Floating_Orb.bat        # 1-Click launcher with Ambient Floating Orb
 ├── Start_Hotkey_Listener.bat     # Background daemon for Ctrl+Alt+A toggle
@@ -200,7 +207,7 @@ cd AeroTouch
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Run automated verification suite (23/23 tests pass)
+# Run automated verification suite (34/34 tests pass)
 python -m unittest discover -s tests -p "test_*.py" -v
 
 # Launch AeroTouch spatial operating layer
@@ -218,10 +225,10 @@ AeroTouch includes a deterministic test suite verifying mathematical correctness
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py" -v
-# Ran 23 tests in 0.041s
+# Ran 34 tests in 0.047s
 # OK
 # [Hardware Detected]: Display Resolution = 1920x1080
-# [Micro-MLP Benchmark]: 0.082 ms per prediction (12232 FPS capability)
+# [Micro-MLP Benchmark]: 0.080 ms per prediction (12480 FPS capability)
 ```
 
 ---

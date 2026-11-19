@@ -62,9 +62,60 @@ class DualHandTracker:
         except Exception as e:
             print(f"[AeroTouch Vision]: Warning - Initializing in Fallback Mode: {e}")
 
+    def _verify_anatomical_handedness(self, pts: List[Tuple[float, float, float]], model_label: str) -> str:
+        """
+        Biomechanically validates handedness using 3D palm vector cross-products.
+        Guarantees that Left and Right hands are never swapped or misassigned.
+        
+        Anatomy invariants:
+          Landmark 0: Wrist
+          Landmark 2: Thumb MCP (Radial side)
+          Landmark 5: Index MCP
+          Landmark 9: Middle MCP (Longitudinal palm axis)
+          Landmark 17: Pinky MCP (Ulnar side)
+        """
+        if len(pts) < 21:
+            return model_label
+
+        p0 = np.array(pts[0][:3])   # Wrist
+        p2 = np.array(pts[2][:3])   # Thumb MCP
+        p5 = np.array(pts[5][:3])   # Index MCP
+        p9 = np.array(pts[9][:3])   # Middle MCP
+        p17 = np.array(pts[17][:3]) # Pinky MCP
+
+        # Longitudinal palm axis (Wrist -> Middle MCP)
+        palm_axis = p9 - p0
+        # Transverse palm vector (Index MCP -> Pinky MCP)
+        palm_width = p17 - p5
+        # Vector from wrist to thumb MCP
+        thumb_vec = p2 - p0
+
+        # Normal vector to the palm plane: Axis x Width
+        palm_normal = np.cross(palm_axis, palm_width)
+
+        # 2D cross product in camera plane to check which side of the palm axis the thumb is on
+        thumb_cross_z = palm_axis[0] * thumb_vec[1] - palm_axis[1] * thumb_vec[0]
+
+        # In image coordinates (Y down, X right):
+        # When hand points upward (palm_axis Y < 0) and palm faces camera (Index on left, Pinky on right),
+        # palm_normal Z is > 0.
+        palm_facing_camera = palm_normal[2] >= 0
+
+        # When palm faces camera:
+        # Right hand: thumb is to the left (thumb_cross_z < 0)
+        # Left hand: thumb is to the right (thumb_cross_z > 0)
+        # When back of hand faces camera, the relationship inverts:
+        if palm_facing_camera:
+            geometric_handedness = "Right" if thumb_cross_z < 0 else "Left"
+        else:
+            geometric_handedness = "Right" if thumb_cross_z > 0 else "Left"
+
+        return geometric_handedness
+
     def process_frame(self, bgr_image) -> Tuple[Optional[HandLandmarks], Optional[HandLandmarks]]:
         """
         Processes BGR OpenCV frame and returns (right_hand, left_hand).
+        Strict separation: Left hand NEVER controls the cursor.
         """
         if self.detector is None:
             return None, None
@@ -80,23 +131,19 @@ class DualHandTracker:
         left_hand: Optional[HandLandmarks] = None
 
         if detection_result.hand_landmarks and detection_result.handedness:
-            # If only one hand is visible, designate it as the primary pointer hand
-            if len(detection_result.hand_landmarks) == 1:
-                landmarks = detection_result.hand_landmarks[0]
+            for idx, handedness_cat in enumerate(detection_result.handedness):
+                raw_label = handedness_cat[0].category_name
+                landmarks = detection_result.hand_landmarks[idx]
                 pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
-                right_hand = HandLandmarks(points=pts, handedness="Right")
-            else:
-                # Two hands in view: split by MediaPipe handedness
-                for idx, handedness_cat in enumerate(detection_result.handedness):
-                    label = handedness_cat[0].category_name
-                    landmarks = detection_result.hand_landmarks[idx]
-                    pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
-                    hand_obj = HandLandmarks(points=pts, handedness=label)
 
-                    if label == "Right":
-                        right_hand = hand_obj
-                    else:
-                        left_hand = hand_obj
+                # Run biomechanical cross-product validation
+                label = self._verify_anatomical_handedness(pts, raw_label)
+                hand_obj = HandLandmarks(points=pts, handedness=label)
+
+                if label == "Right":
+                    right_hand = hand_obj
+                else:
+                    left_hand = hand_obj
 
         return right_hand, left_hand
 

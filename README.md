@@ -162,6 +162,7 @@ AeroTouch/
 │   │   └── setup_hotkey.py       # Desktop & Start Menu shortcut registrar
 │   │
 │   ├── ui/
+│   │   ├── hud.py                # Dual-hand 60 FPS visual HUD & live dataset recorder
 │   │   └── floating_orb.py       # Gemini Live style ambient floating glass orb
 │   │
 │   └── main.py                   # 60 FPS real-time execution loop
@@ -170,10 +171,12 @@ AeroTouch/
 │   ├── aerotouch_demo.gif        # Real-time tracking & deadband demonstration GIF
 │   └── floating_orb.gif          # Ambient breathing glass orb animation GIF
 │
-├── tests/                        # Automated Verification Suite (34/34 Passing)
+├── tests/                        # Automated Verification Suite (40/40 Passing)
 │   ├── test_filter.py            # Tremor damping & deadband noise gate verification
 │   ├── test_bimanual.py          # Multi-frame confirmation & debounce validation
 │   ├── test_orchestrator.py      # End-to-end spatial pipeline & window snap test
+│   ├── test_tracker.py           # Biomechanical palm normal & handedness validation
+│   ├── test_hud.py               # Visual HUD rendering & dataset recorder tests
 │   ├── test_window_dragger.py    # Fist window drag & geometry delta tests
 │   ├── test_volume_control.py    # Continuous audio/brightness scalar & deadband tests
 │   ├── test_telemetry.py         # Telemetry logging & Qwen JSON parsing tests
@@ -207,12 +210,13 @@ cd AeroTouch
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Run automated verification suite (34/34 tests pass)
+# Run automated verification suite (40/40 tests pass)
 python -m unittest discover -s tests -p "test_*.py" -v
 
-# Launch AeroTouch spatial operating layer
+# Launch AeroTouch spatial operating layer with Live Visual Studio HUD
 python -m src.main
 
+# Press 'r' anytime during runtime to record live gesture training samples
 # Or launch with ambient floating orb overlay
 python -m src.main --orb
 ```
@@ -225,10 +229,10 @@ AeroTouch includes a deterministic test suite verifying mathematical correctness
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py" -v
-# Ran 34 tests in 0.047s
+# Ran 40 tests in 0.788s
 # OK
 # [Hardware Detected]: Display Resolution = 1920x1080
-# [Micro-MLP Benchmark]: 0.080 ms per prediction (12480 FPS capability)
+# [Micro-MLP Benchmark]: 0.076 ms per prediction (13089 FPS capability)
 ```
 
 ---

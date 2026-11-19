@@ -15,6 +15,7 @@ from src.core.orchestrator import SpatialOrchestrator
 from src.core.tracker import DualHandTracker
 from src.telemetry.session_logger import SessionTelemetryLogger
 from src.ui.floating_orb import FloatingOrbOverlay
+from src.ui.hud import SpatialHUD
 
 
 def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bool = True):
@@ -43,6 +44,8 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
     telemetry = SessionTelemetryLogger()
     telemetry.open()
 
+    hud = SpatialHUD()
+
     orb: Optional[FloatingOrbOverlay] = None
     if use_orb:
         print("[UI]: Launching Ambient Floating Orb (Gemini Live Style)...")
@@ -51,14 +54,18 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
 
     print("\n[ACTIVE]: AeroTouch Precision Spatial Engine Running. Press 'q' to stop.")
     print("Controls:")
-    print("  * Move Index Finger: Move Mouse (Rock-Solid Deadband Filtering)")
-    print("  * Thumb + Index Pinch: Intentional Left Click (Multi-Frame Confirmed)")
-    print("  * Thumb + Middle Pinch: Right Click")
+    print("  * Move Right Index Finger: Move Mouse (Rock-Solid Deadband Filtering)")
+    print("  * Right Thumb + Index Pinch: Intentional Left Click (Multi-Frame Confirmed)")
+    print("  * Right Thumb + Middle Pinch: Right Click")
+    print("  * Right Closed Fist: Grab & Drag Active Window in 3D")
+    print("  * Left Hand Peace Sign ('V'): Continuous Volume Slider (Pinch tighter = Louder)")
     print("  * Left Hand Fist + Right Pinch: Snap Active Window Left")
-    print("  * Left Hand 3-Fingers + Right Pinch: Switch Virtual Desktop\n")
+    print("  * Left Hand 3-Fingers + Right Pinch: Switch Virtual Desktop")
+    print("  * Press 'r': Toggle Live Gesture Stream Recording (Dataset Generator)\n")
 
     frame_count = 0
     start_time = time.time()
+    current_fps = 60.0
 
     try:
         while True:
@@ -99,15 +106,23 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
                 orb.set_state(is_tracking=is_tracking, action=action)
 
             frame_count += 1
-            if frame_count % 120 == 0:
+            if frame_count % 30 == 0:
                 elapsed = time.time() - start_time
-                fps = frame_count / elapsed
-                print(f"[AeroTouch Telemetry]: FPS: {fps:.1f} | Mode: {result['mode']} | Cursor: {result['cursor_pos']}")
+                current_fps = frame_count / max(elapsed, 0.001)
+
+            if frame_count % 120 == 0:
+                print(f"[AeroTouch Telemetry]: FPS: {current_fps:.1f} | Mode: {result['mode']} | Cursor: {result['cursor_pos']}")
 
             if show_preview:
-                cv2.imshow("AeroTouch Spatial Kernel [Press Q to Exit]", frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                frame = hud.render_hud(frame, right_hand, left_hand, result, fps=current_fps)
+                cv2.imshow("AeroTouch Spatial Kernel [Press Q to Exit, R to Record]", frame)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
                     break
+                elif key == ord('r'):
+                    is_rec = hud.recorder.toggle_recording()
+                    status = "STARTED" if is_rec else "STOPPED"
+                    print(f"\n[AeroTouch Studio]: Gesture Recording {status} -> {hud.recorder._current_file}")
             else:
                 time.sleep(0.001)
 
@@ -117,6 +132,8 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
         cap.release()
         tracker.close()
         cv2.destroyAllWindows()
+        if hud.recorder.is_recording:
+            hud.recorder.stop_recording()
         if orb:
             orb.stop()
         telemetry.close()

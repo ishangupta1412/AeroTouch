@@ -11,10 +11,11 @@ from typing import Dict, Optional, Tuple
 
 from src.core.calibrator import ScreenSpaceMapper
 from src.core.one_euro_filter import PrecisionSpatialFilter2D
-from src.gestures.engine import BimanualEngine, HandLandmarks, HandMode
+from src.gestures.engine import BimanualEngine, HandLandmarks, HandMode, GestureMath
 from src.os_bridge.win32_kernel import VirtualKey, Win32KernelBridge
 from src.service.window_dragger import WindowDragger
 from src.os_bridge.volume_control import MediaScalarController
+from src.os_bridge.audio_feedback import play_chime_async
 
 
 class SpatialOrchestrator:
@@ -48,6 +49,13 @@ class SpatialOrchestrator:
         self.media_ctrl = MediaScalarController()
         self.last_snap_time: float = 0.0
 
+        # Shaka Gesture (🤙) Lock / Sleep State Machine
+        self.is_locked: bool = False
+        self.shaka_streak: int = 0
+        self.last_lock_toggle_time: float = 0.0
+        self.shaka_required_frames: int = int(profile.get("shaka_frames", 35))
+        self.lock_cooldown: float = 1.2
+
     def _load_profile(self, profile_path: Optional[str] = None) -> Dict[str, any]:
         """Loads configuration from config.toml and adaptive user_profile.json."""
         defaults = {
@@ -57,7 +65,8 @@ class SpatialOrchestrator:
             "pinch_threshold": 0.28,
             "release_threshold": 0.38,
             "debounce_seconds": 0.20,
-            "confirm_frames": 2
+            "confirm_frames": 2,
+            "shaka_frames": 35
         }
 
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -79,6 +88,8 @@ class SpatialOrchestrator:
                                 defaults[k] = float(cfg["gestures"][k])
                         if "confirm_frames" in cfg["gestures"]:
                             defaults["confirm_frames"] = int(cfg["gestures"]["confirm_frames"])
+                        if "shaka_frames" in cfg["gestures"]:
+                            defaults["shaka_frames"] = int(cfg["gestures"]["shaka_frames"])
             except Exception:
                 pass
 
@@ -112,13 +123,48 @@ class SpatialOrchestrator:
         if timestamp is None:
             timestamp = time.perf_counter()
 
+        # Step 0: Shaka (🤙) Gesture Lock / Unlock State Machine
+        shaka_detected = False
+        if right_hand is not None and GestureMath.is_shaka(right_hand):
+            shaka_detected = True
+        elif left_hand is not None and GestureMath.is_shaka(left_hand):
+            shaka_detected = True
+
+        toggle_action = None
+        if shaka_detected:
+            if (timestamp - self.last_lock_toggle_time) > self.lock_cooldown:
+                self.shaka_streak += 1
+                if self.shaka_streak >= self.shaka_required_frames:
+                    self.is_locked = not self.is_locked
+                    self.last_lock_toggle_time = timestamp
+                    self.shaka_streak = 0
+                    toggle_action = "AEROTOUCH_LOCKED" if self.is_locked else "AEROTOUCH_UNLOCKED"
+                    play_chime_async(is_lock=self.is_locked)
+        else:
+            self.shaka_streak = max(0, self.shaka_streak - 2)
+
+        lock_progress = min(1.0, self.shaka_streak / max(1, self.shaka_required_frames))
+
+        # If system is LOCKED, freeze all spatial inputs completely
+        if self.is_locked:
+            return {
+                "system_state": "LOCKED",
+                "lock_progress": lock_progress,
+                "mode": "PAUSED",
+                "cursor_pos": None,
+                "action_executed": toggle_action or ("HOLDING_SHAKA" if lock_progress > 0 else None),
+                "action_state": None
+            }
+
         # Step 1: Left-hand modifier mode
         left_mode = self.engine.evaluate_left_modifier(left_hand)
 
         result_summary = {
+            "system_state": "ACTIVE",
+            "lock_progress": lock_progress,
             "mode": left_mode.name,
             "cursor_pos": None,
-            "action_executed": None,
+            "action_executed": toggle_action,
             "action_state": None
         }
 

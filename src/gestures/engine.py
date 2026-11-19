@@ -110,6 +110,33 @@ class GestureMath:
         """
         return cls.count_extended_fingers(hand) <= fist_threshold
 
+    @classmethod
+    def is_shaka(cls, hand: HandLandmarks) -> bool:
+        """
+        Detects 🤙 Shaka gesture (Thumb + Pinky extended, Index + Middle + Ring curled).
+        Orthogonal to all standard operating poses — zero accidental trigger rate.
+        """
+        # Pinky MUST be extended
+        if not cls.is_finger_extended(hand, tip_idx=20, pip_idx=18):
+            return False
+
+        # Index, Middle, and Ring MUST be curled inward
+        if cls.is_finger_extended(hand, tip_idx=8, pip_idx=6):
+            return False
+        if cls.is_finger_extended(hand, tip_idx=12, pip_idx=10):
+            return False
+        if cls.is_finger_extended(hand, tip_idx=16, pip_idx=14):
+            return False
+
+        # Thumb MUST be extended outward away from wrist and palm
+        wrist_to_thumb_tip = cls.euclidean_dist(hand.wrist, hand.thumb_tip)
+        wrist_to_thumb_mcp = cls.euclidean_dist(hand.wrist, hand.points[2])
+        thumb_span = cls.euclidean_dist(hand.thumb_tip, hand.points[17])
+        base_span = cls.euclidean_dist(hand.points[2], hand.points[17])
+
+        thumb_extended = (wrist_to_thumb_tip > wrist_to_thumb_mcp * 1.15) and (thumb_span > max(base_span * 1.05, 0.05))
+        return thumb_extended
+
 
 class BimanualEngine:
     """

@@ -205,21 +205,46 @@ class SpatialHUD:
         cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
 
         # Header Text
-        status_text = f"AeroTouch Studio | {fps:.1f} FPS"
-        if right_hand:
-            status_text += " | Right: ACTIVE"
+        system_state = result.get("system_state", "ACTIVE")
+        lock_progress = result.get("lock_progress", 0.0)
+
+        if system_state == "LOCKED":
+            status_text = f"AeroTouch Studio | {fps:.1f} FPS | [SYSTEM PAUSED - Show 🤙 to Resume]"
+            header_color = (80, 80, 240) # Crimson warning
         else:
-            status_text += " | Right: NONE"
+            status_text = f"AeroTouch Studio | {fps:.1f} FPS"
+            if right_hand:
+                status_text += " | Right: ACTIVE"
+            else:
+                status_text += " | Right: NONE"
 
-        if left_hand:
-            status_text += f" | Left: {result.get('mode', 'IDLE')}"
+            if left_hand:
+                status_text += f" | Left: {result.get('mode', 'IDLE')}"
 
-        action_exec = result.get("action_executed")
-        if action_exec:
-            status_text += f" | Event: {action_exec}"
+            action_exec = result.get("action_executed")
+            if action_exec:
+                status_text += f" | Event: {action_exec}"
+            header_color = (230, 230, 230)
 
         cv2.putText(frame, status_text, (12, 23),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (230, 230, 230), 1, cv2.LINE_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, header_color, 1, cv2.LINE_AA)
+
+        # Shaka countdown visual readout on frame center
+        if lock_progress > 0.05:
+            bar_w = 240
+            bar_h = 16
+            bx = (w - bar_w) // 2
+            by = 50
+            cv2.rectangle(frame, (bx, by), (bx + bar_w, by + bar_h), (30, 30, 30), -1)
+            fill_w = int(bar_w * lock_progress)
+            accent_col = (50, 50, 230) if system_state == "ACTIVE" else (0, 220, 100)
+            if fill_w > 0:
+                cv2.rectangle(frame, (bx, by), (bx + fill_w, by + bar_h), accent_col, -1)
+            cv2.rectangle(frame, (bx, by), (bx + bar_w, by + bar_h), (120, 120, 120), 1)
+
+            toggle_msg = "HOLD 🤙 TO PAUSE" if system_state == "ACTIVE" else "HOLD 🤙 TO RESUME"
+            cv2.putText(frame, f"{toggle_msg} ({int(lock_progress * 100)}%)",
+                        (bx + 20, by + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 255), 1, cv2.LINE_AA)
 
         # 3. Recording Indicator
         if self.recorder.is_recording:

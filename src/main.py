@@ -16,9 +16,15 @@ from src.core.tracker import DualHandTracker
 from src.telemetry.session_logger import SessionTelemetryLogger
 from src.ui.floating_orb import FloatingOrbOverlay
 from src.ui.hud import SpatialHUD
+from src.ui.dynamic_island import DynamicIslandOverlay
 
 
-def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bool = True):
+def run_aerotouch(
+    camera_index: int = 0,
+    use_orb: bool = False,
+    use_island: bool = True,
+    show_preview: bool = True
+):
     print("=" * 65)
     print("      AEROTOUCH: AUTONOMOUS DUAL-HAND SPATIAL OPERATING LAYER     ")
     print("=" * 65)
@@ -46,6 +52,12 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
 
     hud = SpatialHUD()
 
+    island: Optional[DynamicIslandOverlay] = None
+    if use_island:
+        print("[UI]: Launching Native Apple-Grade Dynamic Island Overlay...")
+        island = DynamicIslandOverlay()
+        island.start()
+
     orb: Optional[FloatingOrbOverlay] = None
     if use_orb:
         print("[UI]: Launching Ambient Floating Orb (Gemini Live Style)...")
@@ -61,6 +73,7 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
     print("  * Left Hand Peace Sign ('V'): Continuous Volume Slider (Pinch tighter = Louder)")
     print("  * Left Hand Fist + Right Pinch: Snap Active Window Left")
     print("  * Left Hand 3-Fingers + Right Pinch: Switch Virtual Desktop")
+    print("  * 🤙 Shaka (Thumb + Pinky): Hold 0.6s to Pause / Resume AeroTouch")
     print("  * Press 'r': Toggle Live Gesture Stream Recording (Dataset Generator)\n")
 
     frame_count = 0
@@ -100,7 +113,15 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
                 elif "DESKTOP" in action:
                     print(f"[{ts}] >>> NEXT VIRTUAL DESKTOP <<<")
 
-            # Update Ambient Floating Orb
+            # Update Dynamic Island & Ambient Floating Orb
+            if island:
+                island.update_telemetry(
+                    system_state=result.get("system_state", "ACTIVE"),
+                    lock_progress=result.get("lock_progress", 0.0),
+                    action_executed=action,
+                    mode=result.get("mode", "POINTER_NAV")
+                )
+
             if orb:
                 is_tracking = (right_hand is not None or left_hand is not None)
                 orb.set_state(is_tracking=is_tracking, action=action)
@@ -132,6 +153,8 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
         cap.release()
         tracker.close()
         cv2.destroyAllWindows()
+        if island:
+            island.stop()
         if hud.recorder.is_recording:
             hud.recorder.stop_recording()
         if orb:
@@ -158,6 +181,7 @@ def run_aerotouch(camera_index: int = 0, use_orb: bool = False, show_preview: bo
 if __name__ == "__main__":
     args = sys.argv[1:]
     use_orb = "--orb" in args
+    use_island = "--no-island" not in args
     headless = "--headless" in args or ("--orb" in args and "--preview" not in args)
     show_preview = not headless
 
@@ -166,4 +190,9 @@ if __name__ == "__main__":
         if a.isdigit():
             cam_id = int(a)
 
-    run_aerotouch(camera_index=cam_id, use_orb=use_orb, show_preview=show_preview)
+    run_aerotouch(
+        camera_index=cam_id,
+        use_orb=use_orb,
+        use_island=use_island,
+        show_preview=show_preview
+    )

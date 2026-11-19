@@ -122,6 +122,7 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 | **Context Menu** | Resting / Out of frame | Middle Tip + Thumb Pinch | Native Right Click (`VK_RBUTTON`) |
 | **Spatial Window Drag** | Resting / Out of frame | Closed Fist (Hold & Move) | Grabs foreground window in 3D, follows hand delta; release fist to drop |
 | **Continuous Audio/Volume** | Two-Finger Peace Sign (`V`) | Variable Thumb-Index Pinch | Smooth real-time volume slider (0% to 100% via direct Core Audio) |
+| **Gesture Sleep / Lock** | 🤙 Shaka (Hold 0.6s) | Either Hand | **Pauses/Resumes AeroTouch**: completely freezes spatial inputs so you can move hands freely |
 | **Window Snapping** | Closed Fist (Grab active app) | Index Pinch | Snap window to half-screen (`Win + Left`) |
 | **Virtual Desktop Flip**| Three Fingers Extended | Index Pinch | Switch to next Virtual Desktop (`Win + Ctrl + Right`) |
 | **Emergency Desktop** | Open Palm Forward | Crossed Wrists | Minimize all windows / Show Desktop (`Win + D`) |
@@ -154,7 +155,8 @@ AeroTouch/
 │   │
 │   ├── os_bridge/
 │   │   ├── win32_kernel.py       # Native user32.dll direct input synthesis & window hooks
-│   │   └── volume_control.py     # Continuous Core Audio & Brightness scalar controller
+│   │   ├── volume_control.py     # Continuous Core Audio & Brightness scalar controller
+│   │   └── audio_feedback.py     # Non-blocking low-latency lock/unlock earcon audio feedback
 │   │
 │   ├── service/
 │   │   ├── window_dragger.py     # Fist-drag spatial window repositioning state machine
@@ -162,6 +164,7 @@ AeroTouch/
 │   │   └── setup_hotkey.py       # Desktop & Start Menu shortcut registrar
 │   │
 │   ├── ui/
+│   │   ├── dynamic_island.py     # Top-center Apple-grade morphing Dynamic Island overlay
 │   │   ├── hud.py                # Dual-hand 60 FPS visual HUD & live dataset recorder
 │   │   └── floating_orb.py       # Gemini Live style ambient floating glass orb
 │   │
@@ -171,10 +174,12 @@ AeroTouch/
 │   ├── aerotouch_demo.gif        # Real-time tracking & deadband demonstration GIF
 │   └── floating_orb.gif          # Ambient breathing glass orb animation GIF
 │
-├── tests/                        # Automated Verification Suite (40/40 Passing)
+├── tests/                        # Automated Verification Suite (48/48 Passing)
 │   ├── test_filter.py            # Tremor damping & deadband noise gate verification
 │   ├── test_bimanual.py          # Multi-frame confirmation & debounce validation
 │   ├── test_orchestrator.py      # End-to-end spatial pipeline & window snap test
+│   ├── test_shaka_lock.py        # 🤙 Shaka gesture lock/sleep state machine tests
+│   ├── test_dynamic_island.py    # Apple-grade Dynamic Island morphing geometry tests
 │   ├── test_tracker.py           # Biomechanical palm normal & handedness validation
 │   ├── test_hud.py               # Visual HUD rendering & dataset recorder tests
 │   ├── test_window_dragger.py    # Fist window drag & geometry delta tests
@@ -210,13 +215,14 @@ cd AeroTouch
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Run automated verification suite (40/40 tests pass)
+# Run automated verification suite (48/48 tests pass)
 python -m unittest discover -s tests -p "test_*.py" -v
 
-# Launch AeroTouch spatial operating layer with Live Visual Studio HUD
+# Launch AeroTouch spatial operating layer with Live Dynamic Island & Visual Studio HUD
 python -m src.main
 
 # Press 'r' anytime during runtime to record live gesture training samples
+# Hold 🤙 Shaka (thumb+pinky) for 0.6s to pause/resume AeroTouch anytime
 # Or launch with ambient floating orb overlay
 python -m src.main --orb
 ```
@@ -229,10 +235,10 @@ AeroTouch includes a deterministic test suite verifying mathematical correctness
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py" -v
-# Ran 40 tests in 0.788s
+# Ran 48 tests in 0.852s
 # OK
 # [Hardware Detected]: Display Resolution = 1920x1080
-# [Micro-MLP Benchmark]: 0.076 ms per prediction (13089 FPS capability)
+# [Micro-MLP Benchmark]: 0.073 ms per prediction (13662 FPS capability)
 ```
 
 ---

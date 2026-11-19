@@ -72,12 +72,19 @@ class MoondreamWrapper:
             return True
         if self._load_error:
             return False
+
+        api_key = os.environ.get("MOONDREAM_API_KEY")
+        if not api_key:
+            # Avoid HTTP 401 Unauthorized spam if user hasn't set an API key
+            self._load_error = "MOONDREAM_API_KEY not configured"
+            logger.info("[VisionAnalyst]: MOONDREAM_API_KEY not set. Using native Win32 window context engine (zero-overhead offline mode).")
+            return False
+
         try:
             import moondream as md  # type: ignore
-            # Use the smallest/fastest revision (4-bit quantized ~900MB)
-            self._model = md.vl(model="moondream-2B-int8")
+            self._model = md.vl(api_key=api_key, model="moondream-2B-int8")
             self._loaded = True
-            logger.info("[VisionAnalyst]: Moondream 2 loaded (int8 quantized).")
+            logger.info("[VisionAnalyst]: Moondream 2 cloud vision engine loaded successfully.")
             return True
         except ImportError:
             self._load_error = "moondream package not installed (pip install moondream)"
@@ -85,7 +92,7 @@ class MoondreamWrapper:
             return False
         except Exception as e:
             self._load_error = str(e)
-            logger.warning(f"[VisionAnalyst]: Moondream load failed: {e}")
+            logger.warning(f"[VisionAnalyst]: Moondream initialization failed: {e}")
             return False
 
     def analyze_screenshot(self, image_path: str) -> Optional[Dict[str, Any]]:

@@ -135,7 +135,7 @@ def run_aerotouch(
     vision_analyst: Optional[RollingVisionAnalyst] = None
     if use_vision:
         print("[AeroTouch Cortex]: Starting Rolling Vision Intelligence daemon...")
-        print("  Moondream 2 (1.8B) will load on first screenshot (~30s, one-time).")
+        print("  Adaptive screen context analysis active (Win32 title analysis / Vision).")
         vision_analyst = RollingVisionAnalyst(
             on_params_updated=orchestrator.apply_context_profile,
             screenshot_interval=4.0,

@@ -10,6 +10,7 @@
 [**Source Code**](https://github.com/ishangupta1412/AeroTouch) &nbsp;•&nbsp; 
 [**System Architecture**](#system-architecture) &nbsp;•&nbsp; 
 [**Gesture Controls**](#bimanual-gesture-chording-matrix) &nbsp;•&nbsp; 
+[**Tech Stack**](#tech-stack) &nbsp;•&nbsp; 
 [**MIT License**](./LICENSE)
 
 <br/>
@@ -138,6 +139,30 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 
 ---
 
+## Tech Stack
+
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="65" alt="Python" />
+  &nbsp;&nbsp;
+  <img src="./assets/tech/qwen.gif" width="65" alt="Qwen 2.5" />
+  &nbsp;&nbsp;
+  <img src="./assets/tech/vercel.gif" width="65" alt="Vercel" />
+  &nbsp;&nbsp;
+  <img src="https://user-images.githubusercontent.com/74038190/212281775-b468df30-4edc-4bf8-a4ee-f52e1aaddc86.gif" width="65" alt="Git" />
+  &nbsp;&nbsp;
+  <img src="https://user-images.githubusercontent.com/74038190/212257468-1e9a91f1-b626-4baa-b15d-5c385dfa7ed2.gif" width="65" alt="GitHub" />
+  &nbsp;&nbsp;
+  <img src="https://user-images.githubusercontent.com/74038190/212257465-7ce8d493-cac5-494e-982a-5a9deb852c4b.gif" width="65" alt="VS Code" />
+</p>
+
+- **Core Vision & Tracking**: MediaPipe Tasks (3D Hands), OpenCV, NumPy
+- **Precision Kinematics**: Adaptive 1€ Dynamic Filter, Velocity Deadband Noise Gate, Pointer Ballistics
+- **Native OS Subsystem**: Win32 `user32.dll` Kernel, Direct Input Synthesis, `Shell_NotifyIcon` System Tray Daemon
+- **Autonomous Cortex**: Local Qwen 2.5 (3B via Ollama), Rolling Vision Intelligence (Moondream 2)
+- **Tooling & Environment**: Python 3.12, Git, GitHub, VS Code, Windows 11 Native APIs
+
+---
+
 ## Project Structure
 
 ```
@@ -185,6 +210,9 @@ AeroTouch/
 │   └── main.py                   # 60 FPS real-time execution loop
 │
 ├── assets/                       # Visual assets & diagrams
+│   ├── tech/                     # Animated tech stack moving GIFs
+│   │   ├── qwen.gif              # Qwen 2.5 Cortex animated pulse
+│   │   └── vercel.gif            # Vercel animated edge geometry
 │   └── floating_orb.gif          # Ambient breathing glass orb animation GIF
 │
 ├── tests/                        # Automated Verification Suite (101/101 Passing)

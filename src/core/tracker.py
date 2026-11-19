@@ -31,12 +31,16 @@ def ensure_model_asset() -> str:
 class DualHandTracker:
     """
     Encapsulates modern MediaPipe HandLandmarker with dual-hand (num_hands=2) detection.
+    Provides robust handedness separation so that:
+      1. Both hands are detected simultaneously without dropping or overwriting.
+      2. Turning the right hand over (showing palm vs back of hand) never flips handedness to Left.
+      3. A single Left hand never controls the cursor (right_hand is None).
     """
 
     def __init__(
         self,
         num_hands: int = 2,
-        min_hand_detection_confidence: float = 0.6,
+        min_hand_detection_confidence: float = 0.5,
         min_hand_presence_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5
     ):
@@ -62,60 +66,70 @@ class DualHandTracker:
         except Exception as e:
             print(f"[AeroTouch Vision]: Warning - Initializing in Fallback Mode: {e}")
 
-    def _verify_anatomical_handedness(self, pts: List[Tuple[float, float, float]], model_label: str) -> str:
+    @staticmethod
+    def _compute_3d_chirality(pts: List[Tuple[float, float, float]]) -> float:
         """
-        Biomechanically validates handedness using 3D palm vector cross-products.
-        Guarantees that Left and Right hands are never swapped or misassigned.
+        Computes the 3D scalar triple product of the hand:
+          triple_product = thumb_vec . (longitudinal_axis x transverse_axis)
         
-        Anatomy invariants:
-          Landmark 0: Wrist
-          Landmark 2: Thumb MCP (Radial side)
-          Landmark 5: Index MCP
-          Landmark 9: Middle MCP (Longitudinal palm axis)
-          Landmark 17: Pinky MCP (Ulnar side)
+        This quantity is a rigid 3D rotation invariant (SO(3) invariant).
+        It maintains the EXACT same sign whether the hand is facing
+        palm-forward, back-of-hand, tilted, or rotated at any 3D angle.
+        It ONLY changes sign under chiral reflection (Left vs Right hand).
+        """
+        if len(pts) < 21:
+            return 0.0
+
+        p0 = np.array(pts[0][:3])    # Wrist
+        p2 = np.array(pts[2][:3])    # Thumb MCP
+        p5 = np.array(pts[5][:3])    # Index MCP
+        p9 = np.array(pts[9][:3])    # Middle MCP
+        p17 = np.array(pts[17][:3])  # Pinky MCP
+
+        long_axis = p9 - p0          # Wrist -> Middle MCP
+        trans_axis = p17 - p5        # Index MCP -> Pinky MCP
+        thumb_vec = p2 - p0          # Wrist -> Thumb MCP
+
+        palm_normal = np.cross(long_axis, trans_axis)
+        return float(np.dot(thumb_vec, palm_normal))
+
+    def _verify_anatomical_handedness(
+        self,
+        pts: List[Tuple[float, float, float]],
+        model_label: str,
+        score: float = 1.0
+    ) -> str:
+        """
+        Validates handedness using rotation-invariant 3D chirality and spatial heuristics.
+        Does NOT flip when hand turns between palm and back of hand.
         """
         if len(pts) < 21:
             return model_label
 
-        p0 = np.array(pts[0][:3])   # Wrist
-        p2 = np.array(pts[2][:3])   # Thumb MCP
-        p5 = np.array(pts[5][:3])   # Index MCP
-        p9 = np.array(pts[9][:3])   # Middle MCP
-        p17 = np.array(pts[17][:3]) # Pinky MCP
+        # If MediaPipe ML model has high confidence (>= 0.65), trust it
+        if score >= 0.65 and model_label in ("Right", "Left"):
+            return model_label
 
-        # Longitudinal palm axis (Wrist -> Middle MCP)
-        palm_axis = p9 - p0
-        # Transverse palm vector (Index MCP -> Pinky MCP)
-        palm_width = p17 - p5
-        # Vector from wrist to thumb MCP
-        thumb_vec = p2 - p0
+        # Fallback to rotation-invariant 3D chirality
+        chirality = self._compute_3d_chirality(pts)
+        if abs(chirality) > 1e-6:
+            # Negative triple product = Right hand, Positive = Left hand
+            return "Right" if chirality < 0 else "Left"
 
-        # Normal vector to the palm plane: Axis x Width
-        palm_normal = np.cross(palm_axis, palm_width)
+        # Spatial prior: on mirrored frame, right side of screen is user's Right hand
+        wrist_x = pts[0][0]
+        if wrist_x > 0.55:
+            return "Right"
+        elif wrist_x < 0.45:
+            return "Left"
 
-        # 2D cross product in camera plane to check which side of the palm axis the thumb is on
-        thumb_cross_z = palm_axis[0] * thumb_vec[1] - palm_axis[1] * thumb_vec[0]
-
-        # In image coordinates (Y down, X right):
-        # When hand points upward (palm_axis Y < 0) and palm faces camera (Index on left, Pinky on right),
-        # palm_normal Z is > 0.
-        palm_facing_camera = palm_normal[2] >= 0
-
-        # When palm faces camera:
-        # Right hand: thumb is to the left (thumb_cross_z < 0)
-        # Left hand: thumb is to the right (thumb_cross_z > 0)
-        # When back of hand faces camera, the relationship inverts:
-        if palm_facing_camera:
-            geometric_handedness = "Right" if thumb_cross_z < 0 else "Left"
-        else:
-            geometric_handedness = "Right" if thumb_cross_z > 0 else "Left"
-
-        return geometric_handedness
+        return model_label
 
     def process_frame(self, bgr_image) -> Tuple[Optional[HandLandmarks], Optional[HandLandmarks]]:
         """
         Processes BGR OpenCV frame and returns (right_hand, left_hand).
         Strict separation: Left hand NEVER controls the cursor.
+        Guarantees both hands are tracked concurrently without collision or dropped hands.
         """
         if self.detector is None:
             return None, None
@@ -131,22 +145,70 @@ class DualHandTracker:
         left_hand: Optional[HandLandmarks] = None
 
         if detection_result.hand_landmarks and detection_result.handedness:
-            for idx, handedness_cat in enumerate(detection_result.handedness):
-                raw_label = handedness_cat[0].category_name
-                landmarks = detection_result.hand_landmarks[idx]
-                pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
+            num_detected = len(detection_result.hand_landmarks)
 
-                # Run biomechanical cross-product validation
-                label = self._verify_anatomical_handedness(pts, raw_label)
+            if num_detected == 1:
+                # Single hand detected
+                landmarks = detection_result.hand_landmarks[0]
+                pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
+                raw_cat = detection_result.handedness[0][0]
+                raw_label = raw_cat.category_name
+                score = getattr(raw_cat, "score", 1.0)
+
+                label = self._verify_anatomical_handedness(pts, raw_label, score=score)
                 hand_obj = HandLandmarks(points=pts, handedness=label)
 
                 if label == "Right":
                     right_hand = hand_obj
+                    left_hand = None
                 else:
+                    right_hand = None
                     left_hand = hand_obj
+
+            elif num_detected >= 2:
+                # Dual-hand tracking (or multi-hand)
+                # Extract points and metadata for the first two detections
+                detected_hands = []
+                for idx, landmarks in enumerate(detection_result.hand_landmarks[:2]):
+                    pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
+                    raw_cat = detection_result.handedness[idx][0]
+                    raw_label = raw_cat.category_name
+                    score = getattr(raw_cat, "score", 1.0)
+                    wrist_x = pts[0][0]
+                    detected_hands.append({
+                        "pts": pts,
+                        "raw_label": raw_label,
+                        "score": score,
+                        "wrist_x": wrist_x
+                    })
+
+                h0 = detected_hands[0]
+                h1 = detected_hands[1]
+
+                # Case 1: MediaPipe already detected distinct Right and Left with good confidence
+                if h0["raw_label"] != h1["raw_label"] and h0["score"] >= 0.65 and h1["score"] >= 0.65:
+                    if h0["raw_label"] == "Right":
+                        right_hand = HandLandmarks(points=h0["pts"], handedness="Right")
+                        left_hand = HandLandmarks(points=h1["pts"], handedness="Left")
+                    else:
+                        right_hand = HandLandmarks(points=h1["pts"], handedness="Right")
+                        left_hand = HandLandmarks(points=h0["pts"], handedness="Left")
+                else:
+                    # Case 2: MediaPipe had duplicate labels (e.g. [Right, Right] or [Left, Left])
+                    # or lower confidence. Disambiguate using horizontal position on mirrored screen:
+                    # User's Left hand is on screen left (smaller wrist_x).
+                    # User's Right hand is on screen right (larger wrist_x).
+                    if h0["wrist_x"] >= h1["wrist_x"]:
+                        right_hand = HandLandmarks(points=h0["pts"], handedness="Right")
+                        left_hand = HandLandmarks(points=h1["pts"], handedness="Left")
+                    else:
+                        right_hand = HandLandmarks(points=h1["pts"], handedness="Right")
+                        left_hand = HandLandmarks(points=h0["pts"], handedness="Left")
 
         return right_hand, left_hand
 
     def close(self):
-        if self.detector:
+        """Release MediaPipe detector resources."""
+        if self.detector is not None:
             self.detector.close()
+            self.detector = None

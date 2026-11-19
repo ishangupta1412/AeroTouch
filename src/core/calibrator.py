@@ -19,7 +19,7 @@ class ScreenSpaceMapper:
         screen_height: int,
         margin_x: float = 0.15,  # 15% boundary margin for effortless reach
         margin_y: float = 0.18,
-        flip_x: bool = True      # Mirror mode: Moving hand right moves cursor right
+        flip_x: bool = False     # False: webcam frame is mirrored at capture, so norm_x is natural
     ):
         self.screen_width = screen_width
         self.screen_height = screen_height

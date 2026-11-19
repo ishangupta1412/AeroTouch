@@ -86,6 +86,9 @@ def run_aerotouch(
             if not ret:
                 break
 
+            # Natural mirrored selfie view (OpenCV standard for interactive spatial control)
+            frame = cv2.flip(frame, 1)
+
             now = time.perf_counter()
             right_hand, left_hand = tracker.process_frame(frame)
 

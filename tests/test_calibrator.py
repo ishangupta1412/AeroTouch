@@ -13,11 +13,13 @@ class TestScreenSpaceMapper(unittest.TestCase):
         self.assertAlmostEqual(sy, 539, delta=5)
 
     def test_corner_reachability(self):
-        # Even with hand at 0.1 margin, it should reach full 1920 border without strain
-        sx_right, _ = self.mapper.map_to_screen(0.1, 0.5)
+        # In natural mirrored mode (flip_x=False):
+        # Hand at 0.9 reaches right border 1919 without strain
+        sx_right, _ = self.mapper.map_to_screen(0.9, 0.5)
         self.assertEqual(sx_right, 1919)
 
-        sx_left, _ = self.mapper.map_to_screen(0.9, 0.5)
+        # Hand at 0.1 reaches left border 0 without strain
+        sx_left, _ = self.mapper.map_to_screen(0.1, 0.5)
         self.assertEqual(sx_left, 0)
 
 

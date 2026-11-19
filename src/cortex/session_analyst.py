@@ -166,11 +166,16 @@ class SessionAnalyst:
         if not os.path.exists(self.sessions_dir):
             return {"status": "skip", "reason": "No sessions directory found."}
 
-        session_files = sorted([
-            os.path.join(self.sessions_dir, f)
-            for f in os.listdir(self.sessions_dir)
-            if f.startswith("session_") and f.endswith(".jsonl")
-        ])
+        session_files = sorted(
+            [
+                os.path.join(self.sessions_dir, f)
+                for f in os.listdir(self.sessions_dir)
+                if f.startswith("session_")
+                and f.endswith(".jsonl")
+                and os.path.getsize(os.path.join(self.sessions_dir, f)) > 50
+            ],
+            key=os.path.getmtime
+        )
 
         if not session_files:
             return {"status": "skip", "reason": "No session telemetry files found."}

@@ -6,7 +6,24 @@ Supports Ambient Floating Orb overlay (Gemini Live style).
 Autonomous Qwen session telemetry self-tuner on session shutdown.
 """
 
+import os
 import sys
+
+# Guarantee project root is in sys.path regardless of execution path
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT_DIR not in sys.path:
+    sys.path.insert(0, _ROOT_DIR)
+
+# Suppress native C++ MediaPipe/TensorFlow stderr spew in PowerShell/CMD
+os.environ["GLOG_minloglevel"] = "2"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+try:
+    # Ensure immediate terminal output on Windows
+    sys.stdout.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
 import time
 from typing import Optional
 import cv2
@@ -37,14 +54,21 @@ def run_aerotouch(
     tracker = DualHandTracker(num_hands=2)
 
     cap = cv2.VideoCapture(camera_index)
+    ret_test, _ = cap.read() if cap.isOpened() else (False, None)
+    if not ret_test:
+        fallback_idx = 1 if camera_index == 0 else 0
+        print(f"[AeroTouch Vision]: Camera index {camera_index} unavailable, trying fallback index {fallback_idx}...")
+        cap.release()
+        cap = cv2.VideoCapture(fallback_idx)
+        ret_test, _ = cap.read() if cap.isOpened() else (False, None)
+        if not ret_test:
+            print(f"[ERROR]: Could not open webcam at index {camera_index} or {fallback_idx}.")
+            print("Please check Windows camera privacy settings or close other camera apps.")
+            return
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     cap.set(cv2.CAP_PROP_FPS, 60)
-
-    if not cap.isOpened():
-        print(f"[ERROR]: Could not open webcam at index {camera_index}.")
-        print("Please check webcam permissions or try index 1.")
-        return
 
     # Initialize Telemetry Logger
     telemetry = SessionTelemetryLogger()
@@ -181,7 +205,7 @@ def run_aerotouch(
             print(f"[Cortex Self-Tuning]: Analysis deferred ({e})")
 
 
-if __name__ == "__main__":
+def main():
     args = sys.argv[1:]
     use_orb = "--orb" in args
     use_island = "--no-island" not in args
@@ -199,3 +223,7 @@ if __name__ == "__main__":
         use_island=use_island,
         show_preview=show_preview
     )
+
+
+if __name__ == "__main__":
+    main()

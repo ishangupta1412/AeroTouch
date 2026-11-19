@@ -30,16 +30,6 @@
 
 ---
 
-<div align="center">
-
-![AeroTouch Real-Time Kinematics Demo](./assets/aerotouch_demo.gif)
-
-*Real-time spatial optical tracking · Dynamic Deadband Noise Gate · Multi-Frame Click Confirmation*
-
-</div>
-
----
-
 ## The Core Philosophy: Why Traditional Gesture Control Fails
 
 Most open-source virtual mice and gesture-control experiments suffer from three critical engineering flaws:
@@ -199,7 +189,6 @@ AeroTouch/
 │   └── main.py                   # 60 FPS real-time execution loop
 │
 ├── assets/                       # Visual assets & diagrams
-│   ├── aerotouch_demo.gif        # Real-time tracking & deadband demonstration GIF
 │   └── floating_orb.gif          # Ambient breathing glass orb animation GIF
 │
 ├── tests/                        # Automated Verification Suite (101/101 Passing)

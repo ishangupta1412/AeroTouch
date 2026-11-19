@@ -3,7 +3,7 @@
 <div align="center">
 
 ### Autonomous Dual-Hand Spatial Operating Layer
-*Sub-millisecond touchless computer control powered by adaptive 1€ jitter filtering, velocity deadband noise gating, bimanual gesture chording, few-shot custom gesture learning, and local Qwen background kinematic tuning.*
+*Sub-millisecond touchless computer control powered by adaptive 1€ jitter filtering, velocity deadband noise gating, bimanual gesture chording, few-shot custom gesture learning, rolling vision intelligence context awareness, and local Qwen background kinematic tuning.*
 
 <br/>
 
@@ -57,6 +57,7 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 - **Few-Shot Custom Gesture Learning**: Personalize new gestures in seconds with as few as 5-10 frames, mapped to hotkeys, media controls, or system actions via fast cosine similarity prototype matching (< 0.02ms).
 - **Native Windows System Tray Daemon**: Runs quietly in the notification area with full context menu support (Pause/Resume, Recalibrate, Cortex Optimization, Toggle Preview, Exit) and native balloon/toast notifications.
 - **Continuous 1-Euro Frequency Modulation**: Modulates filter cutoff dynamically with movement velocity ($\beta = 0.015$ calibrated for normalized spatial coordinates).
+- **Rolling Vision Intelligence Pipeline**: Background daemon takes periodic screenshots (every 4s), analyzes active app semantics and UI density via Moondream 2, immediately purges images from memory, and flushes 10-context batches to local Qwen for real-time live parameter adaptation with few-shot memory.
 - **Background Kinematic Self-Tuning (Local Qwen)**: Analyzes session telemetry (pinch distance distribution, tremor variance) and auto-tunes parameters to fit individual hand geometry.
 - **Ambient Floating Orb & Dynamic Island**: Minimal, borderless indicators that reflect tracking status and click events without obstructing the screen.
 
@@ -118,6 +119,15 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 │ • Per-session telemetry recording (data/sessions/)               │
 │ • Post-session analysis via local Ollama (aerotouch-qwen:latest) │
 │ • Auto-tunes thresholds & writes to data/user_profile.json       │
+└──────────────────────────────────┬───────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ 6. Rolling Vision Intelligence: Moondream + Qwen Adaptation      │
+│ • Screenshot every 4s → Moondream 2 (1.8B) → context JSON        │
+│ • Immediate screenshot deletion (zero memory accumulation)       │
+│ • Micro-batch of 10 contexts → Qwen batch recommendation         │
+│ • Live parameter injection + few-shot memory (vision_memory.jsonl)│
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -137,6 +147,7 @@ Most open-source virtual mice and gesture-control experiments suffer from three 
 | **4-Way Window Snapping** | Closed Fist (Grab active app) | Pinch & Move Up/Down/Left/Right | Full snapping matrix: Left (`Win+Left`), Right (`Win+Right`), Maximize (`Win+Up`), Minimize (`Win+Down`) |
 | **Virtual Desktop Flip**| Three Fingers Extended | Index Pinch | Switch to next Virtual Desktop (`Win + Ctrl + Right`) |
 | **Custom Few-Shot Pose** | Resting / Out of frame | User-Trained Custom Hand Pose | Custom hotkey, media play/pause, volume mute, or screenshot |
+| **Context-Aware Precision** | Passive (auto) | Passive (auto) | Vision model detects active screen context; Qwen auto-tunes ballistics, deadband, and scroll sensitivity |
 | **Emergency Desktop** | Open Palm Forward | Crossed Wrists | Minimize all windows / Show Desktop (`Win + D`) |
 
 ---
@@ -161,6 +172,7 @@ AeroTouch/
 │   │
 │   ├── cortex/
 │   │   ├── session_analyst.py    # Qwen background kinematic parameter optimizer
+│   │   ├── vision_analyst.py     # Rolling vision intelligence pipeline (Moondream + Qwen)
 │   │   ├── fine_tuner.py         # Ollama model compiler
 │   │   └── dataset.py            # Telemetry synthetic benchmark generator
 │   │
@@ -190,7 +202,7 @@ AeroTouch/
 │   ├── aerotouch_demo.gif        # Real-time tracking & deadband demonstration GIF
 │   └── floating_orb.gif          # Ambient breathing glass orb animation GIF
 │
-├── tests/                        # Automated Verification Suite (77/77 Passing)
+├── tests/                        # Automated Verification Suite (101/101 Passing)
 │   ├── test_filter.py            # Tremor damping & deadband noise gate verification
 │   ├── test_bimanual.py          # Multi-frame confirmation & debounce validation
 │   ├── test_orchestrator.py      # End-to-end spatial pipeline & window snap test
@@ -209,7 +221,8 @@ AeroTouch/
 │   ├── test_calibrator.py        # Screen corner reachability verification
 │   ├── test_kernel.py            # Hardware resolution & keycode tests
 │   ├── test_floating_orb.py      # Ambient UI state machine test
-│   └── test_micro_classifier.py  # MLP inference benchmark (< 0.1ms)
+│   ├── test_micro_classifier.py  # MLP inference benchmark (< 0.1ms)
+│   └── test_vision_analyst.py    # Rolling vision pipeline, Moondream parsing & memory tests
 │
 ├── models/
 │   └── aerotouch-qwen/           # Custom Ollama Modelfile for kinematic optimization
@@ -237,11 +250,14 @@ cd AeroTouch
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Run automated verification suite (77/77 tests pass)
+# Run automated verification suite (101/101 tests pass)
 python -m unittest discover -s tests -p "test_*.py" -v
 
 # Launch AeroTouch spatial operating layer with Live Dynamic Island & Visual Studio HUD
 python main.py
+
+# Launch without background Vision Intelligence (saves VRAM)
+python main.py --no-vision
 
 # Launch in background system tray mode (quietly in Windows notification bar)
 python main.py --tray
@@ -275,10 +291,10 @@ AeroTouch includes a deterministic test suite verifying mathematical correctness
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py" -v
-# Ran 77 tests in 1.385s
+# Ran 101 tests in 1.458s
 # OK
 # [Hardware Detected]: Display Resolution = 1920x1080
-# [Micro-MLP Benchmark]: 0.074 ms per prediction (13428 FPS capability)
+# [Micro-MLP Benchmark]: 0.072 ms per prediction (13889 FPS capability)
 ```
 
 ---

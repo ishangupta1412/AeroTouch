@@ -35,6 +35,7 @@ from src.ui.floating_orb import FloatingOrbOverlay
 from src.ui.hud import SpatialHUD
 from src.ui.dynamic_island import DynamicIslandOverlay
 from src.ui.tray import AeroTouchTrayDaemon
+from src.cortex.vision_analyst import RollingVisionAnalyst
 
 
 def run_aerotouch(
@@ -42,7 +43,8 @@ def run_aerotouch(
     use_orb: bool = False,
     use_island: bool = True,
     show_preview: bool = True,
-    use_tray: bool = False
+    use_tray: bool = False,
+    use_vision: bool = True
 ):
     print("=" * 65)
     print("      AEROTOUCH: AUTONOMOUS DUAL-HAND SPATIAL OPERATING LAYER     ")
@@ -128,6 +130,18 @@ def run_aerotouch(
         )
         tray.start()
         tray.notify("AeroTouch", "Spatial Operating Layer running in background tray mode.")
+
+    # ── Rolling Vision Intelligence Daemon ──────────────────────────────
+    vision_analyst: Optional[RollingVisionAnalyst] = None
+    if use_vision:
+        print("[AeroTouch Cortex]: Starting Rolling Vision Intelligence daemon...")
+        print("  Moondream 2 (1.8B) will load on first screenshot (~30s, one-time).")
+        vision_analyst = RollingVisionAnalyst(
+            on_params_updated=orchestrator.apply_context_profile,
+            screenshot_interval=4.0,
+            batch_size=10,
+        )
+        vision_analyst.start()
 
     print("\n[ACTIVE]: AeroTouch Precision Spatial Engine Running. Press 'q' to stop.")
     print("Controls:")
@@ -229,6 +243,8 @@ def run_aerotouch(
             hud.recorder.stop_recording()
         if orb:
             orb.stop()
+        if vision_analyst:
+            vision_analyst.stop()
         telemetry.close()
         print("[AeroTouch]: Hardware links safely released.")
 
@@ -257,6 +273,7 @@ def main():
     if use_tray and "--preview" not in args:
         headless = True
     show_preview = not headless
+    use_vision = "--no-vision" not in args
 
     cam_id = 0
     for a in args:
@@ -268,7 +285,8 @@ def main():
         use_orb=use_orb,
         use_island=use_island,
         show_preview=show_preview,
-        use_tray=use_tray
+        use_tray=use_tray,
+        use_vision=use_vision,
     )
 
 

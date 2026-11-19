@@ -74,6 +74,35 @@ class SpatialOrchestrator:
         self.dragger.reset()
         self.custom_gesture_streak = 0
 
+    def apply_context_profile(self, recommendations: Dict[str, any]) -> None:
+        """
+        Applies live parameter updates from the Rolling Vision Intelligence pipeline.
+        Called in background thread from RollingVisionAnalyst.on_params_updated.
+        Thread-safe: each attribute assignment is atomic in CPython (GIL guarantee).
+
+        Parameter bounds enforced here are the same ranges Qwen is told about,
+        preventing any out-of-range recommendation from destabilising the system.
+        """
+        if "deadband" in recommendations:
+            val = max(0.001, min(0.008, float(recommendations["deadband"])))
+            self.filter.deadband = val
+
+        if "ballistics_precision_gain" in recommendations:
+            val = max(0.3, min(0.8, float(recommendations["ballistics_precision_gain"])))
+            self.ballistics.precision_gain = val
+
+        if "ballistics_max_multiplier" in recommendations:
+            val = max(1.5, min(2.5, float(recommendations["ballistics_max_multiplier"])))
+            self.ballistics.max_multiplier = val
+
+        if "scroll_sensitivity" in recommendations:
+            val = max(8.0, min(25.0, float(recommendations["scroll_sensitivity"])))
+            self.scroll_ctrl.sensitivity = val
+
+        reasoning = recommendations.get("reasoning", "")
+        if reasoning:
+            print(f"[AeroTouch Vision]: Context adaptation applied — {reasoning}")
+
     def _load_profile(self, profile_path: Optional[str] = None) -> Dict[str, any]:
         """Loads configuration from config.toml and adaptive user_profile.json."""
         defaults = {

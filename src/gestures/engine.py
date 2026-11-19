@@ -137,6 +137,56 @@ class GestureMath:
         thumb_extended = (wrist_to_thumb_tip > wrist_to_thumb_mcp * 1.15) and (thumb_span > max(base_span * 1.05, 0.05))
         return thumb_extended
 
+    @classmethod
+    def is_two_finger_scroll(cls, hand: HandLandmarks) -> bool:
+        """
+        Detects trackpad-style two-finger scroll gesture:
+        Index + Middle extended together parallel, Ring + Pinky curled inward.
+        """
+        # Index and Middle MUST be extended
+        if not cls.is_finger_extended(hand, tip_idx=8, pip_idx=6):
+            return False
+        if not cls.is_finger_extended(hand, tip_idx=12, pip_idx=10):
+            return False
+
+        # Ring and Pinky MUST be curled inward
+        if cls.is_finger_extended(hand, tip_idx=16, pip_idx=14):
+            return False
+        if cls.is_finger_extended(hand, tip_idx=20, pip_idx=18):
+            return False
+
+        # Index tip and Middle tip must be held parallel (not wide peace sign 'V')
+        tip_distance = cls.euclidean_dist(hand.index_tip, hand.middle_tip)
+        scale = cls.euclidean_dist(hand.wrist, hand.points[9])
+        if (tip_distance / max(scale, 0.001)) > 0.45:
+            return False
+
+        # Must not be an intentional pinch
+        norm_pinch = cls.normalized_pinch_distance(hand, finger_idx=8)
+        if norm_pinch < 0.32:
+            return False
+
+        return True
+
+    @classmethod
+    def get_snap_direction(cls, right_hand: HandLandmarks) -> str:
+        """
+        Determines the 4-way direction of the pinch relative to the middle MCP:
+        Returns: 'LEFT', 'RIGHT', 'UP', or 'DOWN'.
+        """
+        ref_x, ref_y = right_hand.points[9][0], right_hand.points[9][1]
+        pinch_x = (right_hand.thumb_tip[0] + right_hand.index_tip[0]) / 2.0
+        pinch_y = (right_hand.thumb_tip[1] + right_hand.index_tip[1]) / 2.0
+
+        dx = pinch_x - ref_x
+        dy = pinch_y - ref_y  # negative dy = UP, positive dy = DOWN
+
+        # Determine dominant axis
+        if abs(dx) > abs(dy) * 0.8:
+            return "RIGHT" if dx > 0 else "LEFT"
+        else:
+            return "DOWN" if dy > 0 else "UP"
+
 
 class BimanualEngine:
     """
@@ -257,6 +307,14 @@ class BimanualEngine:
                 self.pinch_streak = 0
                 self.middle_pinch_streak = 0
 
+        # Two-Finger Scroll Detection
+        is_scroll = False
+        scroll_y = raw_y
+        if not self.is_fist_active and not self.is_pinching:
+            if GestureMath.is_two_finger_scroll(right_hand):
+                is_scroll = True
+                scroll_y = (right_hand.index_tip[1] + right_hand.middle_tip[1]) / 2.0
+
         # Continuous scalar for media / brightness / zoom (0.0 open -> 1.0 tight pinch)
         pinch_scalar = max(0.0, min(1.0, 1.0 - (norm_pinch / 0.6)))
 
@@ -268,6 +326,8 @@ class BimanualEngine:
             "middle_pinch_distance": norm_middle_pinch,
             "pinch_scalar": pinch_scalar,
             "is_pinching": self.is_pinching,
+            "is_scroll": is_scroll,
+            "scroll_y": scroll_y,
             "is_fist": self.is_fist_active,
             "fist_event": fist_event,
             "click_event": click_event,

@@ -6,6 +6,6 @@
   "deadband": 0.0025,
   "min_cutoff": 0.05,
   "beta": 0.015,
-  "sessions_analyzed": 1,
-  "last_updated": "2026-11-18 19:36:41"
+  "sessions_analyzed": 4,
+  "last_updated": "2026-11-19 18:52:19"
 }

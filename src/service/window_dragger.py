@@ -62,3 +62,7 @@ class WindowDragger:
         """Called when fist opens — releases window at current position."""
         self._dragging = False
         self._drag_hwnd = 0
+
+    def reset(self) -> None:
+        """Resets dragging state immediately."""
+        self.end_drag()

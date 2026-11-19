@@ -134,3 +134,46 @@ class Win32KernelBridge:
         """Restores a maximized window so it can be dragged freely."""
         SW_RESTORE = 9
         self.user32.ShowWindow(hwnd, SW_RESTORE)
+
+    def execute_named_action(self, action: str, param: any = None) -> bool:
+        """Executes a high-level named action like MEDIA_PLAY_PAUSE, HOTKEY, etc."""
+        action = action.upper()
+        if action == "MEDIA_PLAY_PAUSE":
+            self.tap_key(0xB3)  # VK_MEDIA_PLAY_PAUSE
+            return True
+        elif action == "VOLUME_MUTE":
+            self.tap_key(0xAD)  # VK_VOLUME_MUTE
+            return True
+        elif action == "SCREENSHOT":
+            # Win + Shift + S
+            self.hotkey(0x5B, 0x10, ord('S'))
+            return True
+        elif action == "TASK_VIEW":
+            # Win + Tab
+            self.hotkey(0x5B, 0x09)
+            return True
+        elif action == "LOCK_WORKSTATION":
+            self.hotkey(0x5B, ord('L'))
+            return True
+        elif action == "HOTKEY" and param:
+            key_map = {
+                "ctrl": 0x11, "alt": 0x12, "shift": 0x10, "win": 0x5B,
+                "tab": 0x09, "esc": 0x1B, "enter": 0x0D, "space": 0x20
+            }
+            if isinstance(param, str):
+                parts = [p.strip().lower() for p in param.split("+")]
+            elif isinstance(param, list):
+                parts = [str(p).strip().lower() for p in param]
+            else:
+                parts = []
+
+            vk_list = []
+            for p in parts:
+                if p in key_map:
+                    vk_list.append(key_map[p])
+                elif len(p) == 1:
+                    vk_list.append(ord(p.upper()))
+            if vk_list:
+                self.hotkey(*vk_list)
+                return True
+        return False

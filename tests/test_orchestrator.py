@@ -51,12 +51,12 @@ class TestSpatialOrchestrator(unittest.TestCase):
 
         left_hand = HandLandmarks(points=left_points, handedness="Left")
 
-        # Right hand pinched (Thumb tip + Index tip at same point)
+        # Right hand pinched to the LEFT of Middle MCP
         right_points = [(0.5, 0.8, 0.0)] * 21
         right_points[0] = (0.5, 0.8, 0.0)
         right_points[9] = (0.5, 0.5, 0.0)
-        right_points[4] = (0.5, 0.3, 0.0)
-        right_points[8] = (0.5, 0.3, 0.0) # Pinch
+        right_points[4] = (0.35, 0.5, 0.0)
+        right_points[8] = (0.35, 0.5, 0.0) # Pinch directed left
         right_points[12] = (0.7, 0.2, 0.0)
         right_hand = HandLandmarks(points=right_points, handedness="Right")
 
@@ -67,6 +67,36 @@ class TestSpatialOrchestrator(unittest.TestCase):
 
         self.assertEqual(res2["action_executed"], "WINDOW_SNAP_LEFT")
         self.orchestrator.kernel.hotkey.assert_called_with(VirtualKey.VK_LWIN, VirtualKey.VK_LEFT)
+
+    def test_recalibrate_resets_state(self):
+        self.orchestrator.custom_gesture_streak = 5
+        self.orchestrator.recalibrate()
+        self.assertEqual(self.orchestrator.custom_gesture_streak, 0)
+        self.assertIsNone(self.orchestrator.filter.last_output_x)
+
+    def test_custom_few_shot_gesture_dispatch(self):
+        self.orchestrator.kernel.execute_named_action = MagicMock()
+
+        # Mock custom gesture in custom_engine
+        self.orchestrator.custom_engine.classify = MagicMock(
+            return_value=("CUSTOM_PLAY", 0.95, {"action": "MEDIA_PLAY_PAUSE", "action_param": None})
+        )
+
+        dummy_points = [(0.5, 0.5, 0.0)] * 21
+        dummy_points[4] = (0.3, 0.3, 0.0)
+        dummy_points[8] = (0.5, 0.2, 0.0)
+        dummy_points[9] = (0.5, 0.6, 0.0)
+        right_hand = HandLandmarks(points=dummy_points, handedness="Right")
+
+        # Frame 1
+        self.orchestrator.process_spatial_frame(right_hand, None, timestamp=1.0)
+        # Frame 2
+        self.orchestrator.process_spatial_frame(right_hand, None, timestamp=1.016)
+        # Frame 3: confirmed!
+        res3 = self.orchestrator.process_spatial_frame(right_hand, None, timestamp=1.032)
+
+        self.assertEqual(res3["action_executed"], "CUSTOM_GESTURE_CUSTOM_PLAY")
+        self.orchestrator.kernel.execute_named_action.assert_called_with("MEDIA_PLAY_PAUSE", None)
 
 
 if __name__ == '__main__':

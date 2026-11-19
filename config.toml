@@ -6,6 +6,18 @@ min_cutoff = 0.05       # Rock-solid stillness at rest (dampens micro-tremor)
 beta = 0.015            # Dynamic speed response for rapid sweeps
 deadband = 0.0025       # Minimum normalized movement delta to unfreeze cursor (~4.8px on 1080p)
 
+[ballistics]
+# Pointer Acceleration & Micro-Precision Curves
+precision_threshold = 0.003  # Movement below this is geared down (0.5x speed) for sniper targeting
+precision_gain = 0.5         # Sub-pixel precision multiplier for small buttons
+flick_threshold = 0.015      # Movement above this scales up (up to 2.2x speed) for sweeping across screens
+max_multiplier = 2.2         # Maximum acceleration factor
+
+[scroll]
+# macOS-Grade Two-Finger Kinetic Scroll with Inertia Friction Decay
+scroll_sensitivity = 14.0   # Wheel tick gain per unit delta
+friction_decay = 0.85       # Momentum decay factor per frame upon release (0.85 = buttery smooth stop)
+
 [gestures]
 # Pinch, fist, and lock trigger thresholds (scale-invariant 3D normalized distance)
 pinch_threshold = 0.28    # Normalized distance below which click activates

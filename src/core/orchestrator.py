@@ -9,13 +9,15 @@ import json
 import time
 from typing import Dict, Optional, Tuple
 
-from src.core.calibrator import ScreenSpaceMapper
+from src.core.calibrator import ScreenSpaceMapper, PointerBallistics
 from src.core.one_euro_filter import PrecisionSpatialFilter2D
 from src.gestures.engine import BimanualEngine, HandLandmarks, HandMode, GestureMath
 from src.os_bridge.win32_kernel import VirtualKey, Win32KernelBridge
 from src.service.window_dragger import WindowDragger
+from src.service.scroll_controller import KineticScrollController
 from src.os_bridge.volume_control import MediaScalarController
 from src.os_bridge.audio_feedback import play_chime_async
+from src.gestures.few_shot_engine import FewShotGestureEngine
 
 
 class SpatialOrchestrator:
@@ -46,8 +48,16 @@ class SpatialOrchestrator:
         )
 
         self.dragger = WindowDragger()
+        self.scroll_ctrl = KineticScrollController()
+        self.ballistics = PointerBallistics()
         self.media_ctrl = MediaScalarController()
         self.last_snap_time: float = 0.0
+
+        # Few-Shot Custom Gesture Engine
+        self.custom_engine = FewShotGestureEngine()
+        self.custom_gesture_streak: int = 0
+        self.last_custom_gesture_time: float = 0.0
+        self.last_custom_gesture_name: Optional[str] = None
 
         # Shaka Gesture (🤙) Lock / Sleep State Machine
         self.is_locked: bool = False
@@ -55,6 +65,14 @@ class SpatialOrchestrator:
         self.last_lock_toggle_time: float = 0.0
         self.shaka_required_frames: int = int(profile.get("shaka_frames", 35))
         self.lock_cooldown: float = 1.2
+
+    def recalibrate(self) -> None:
+        """Resets all spatial filters, pointer ballistics, and dragging states."""
+        self.filter.reset()
+        self.ballistics.reset()
+        self.scroll_ctrl.reset()
+        self.dragger.reset()
+        self.custom_gesture_streak = 0
 
     def _load_profile(self, profile_path: Optional[str] = None) -> Dict[str, any]:
         """Loads configuration from config.toml and adaptive user_profile.json."""
@@ -178,12 +196,29 @@ class SpatialOrchestrator:
             # Filter with Deadband Noise Gate — eliminates micro-vibrations completely
             smooth_x, smooth_y = self.filter.filter(norm_x, norm_y, timestamp=timestamp)
 
+            # Apply Dynamic Pointer Ballistics (Sniper Precision Mode & Flick Acceleration)
+            accel_x, accel_y = self.ballistics.apply(smooth_x, smooth_y, timestamp=timestamp)
+
             # Map to physical screen resolution
-            screen_x, screen_y = self.mapper.map_to_screen(smooth_x, smooth_y)
+            screen_x, screen_y = self.mapper.map_to_screen(accel_x, accel_y)
             result_summary["cursor_pos"] = (screen_x, screen_y)
 
-            # Move hardware cursor via direct Win32 API
-            self.kernel.move_cursor(screen_x, screen_y)
+            # Two-Finger Kinetic Scroll with Momentum Decay
+            is_scroll = action_state.get("is_scroll", False)
+            scroll_y = action_state.get("scroll_y", norm_y)
+            scroll_steps = self.scroll_ctrl.update(is_scroll, scroll_y, timestamp=timestamp)
+
+            if is_scroll:
+                if scroll_steps != 0:
+                    self.kernel.scroll(scroll_steps)
+                    result_summary["action_executed"] = f"TWO_FINGER_SCROLL_{scroll_steps}"
+            else:
+                if scroll_steps != 0:
+                    self.kernel.scroll(scroll_steps)
+                    result_summary["action_executed"] = f"KINETIC_SCROLL_{scroll_steps}"
+
+                # Only move cursor when not actively two-finger scrolling
+                self.kernel.move_cursor(screen_x, screen_y)
 
             # Continuous Media Scalar Control (Volume)
             if left_mode == HandMode.MEDIA_CONTROL:
@@ -210,9 +245,20 @@ class SpatialOrchestrator:
             if action_state["click_event"] == "LEFT_CLICK":
                 if left_mode == HandMode.WINDOW_SNAP:
                     if timestamp - self.last_snap_time > 0.5:
-                        self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_LEFT)
+                        direction = GestureMath.get_snap_direction(right_hand)
+                        if direction == "UP":
+                            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_UP)
+                            result_summary["action_executed"] = "WINDOW_MAXIMIZE"
+                        elif direction == "DOWN":
+                            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_DOWN)
+                            result_summary["action_executed"] = "WINDOW_MINIMIZE"
+                        elif direction == "RIGHT":
+                            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_RIGHT)
+                            result_summary["action_executed"] = "WINDOW_SNAP_RIGHT"
+                        else:
+                            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_LEFT)
+                            result_summary["action_executed"] = "WINDOW_SNAP_LEFT"
                         self.last_snap_time = timestamp
-                        result_summary["action_executed"] = "WINDOW_SNAP_LEFT"
                 elif left_mode == HandMode.DESKTOP_SWITCH:
                     self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_CONTROL, VirtualKey.VK_RIGHT)
                     result_summary["action_executed"] = "DESKTOP_NEXT"
@@ -223,5 +269,27 @@ class SpatialOrchestrator:
             elif action_state["right_click_event"] == "RIGHT_CLICK":
                 self.kernel.click(left=False)
                 result_summary["action_executed"] = "MOUSE_RIGHT_CLICK"
+
+            # Check Custom Few-Shot Gestures (e.g. Media, Hotkey, Screenshot)
+            if not is_scroll and not action_state.get("is_fist") and not action_state.get("click_event"):
+                custom_match = self.custom_engine.classify(right_hand)
+                if custom_match is not None:
+                    c_name, c_sim, c_meta = custom_match
+                    if c_name == self.last_custom_gesture_name:
+                        self.custom_gesture_streak += 1
+                    else:
+                        self.custom_gesture_streak = 1
+                        self.last_custom_gesture_name = c_name
+
+                    # 3 confirmed consecutive frames and debounce cooldown
+                    if self.custom_gesture_streak >= 3 and (timestamp - self.last_custom_gesture_time) > 0.8:
+                        action_type = c_meta.get("action", "HOTKEY")
+                        action_param = c_meta.get("action_param")
+                        self.kernel.execute_named_action(action_type, action_param)
+                        result_summary["action_executed"] = f"CUSTOM_GESTURE_{c_name}"
+                        self.last_custom_gesture_time = timestamp
+                else:
+                    self.custom_gesture_streak = 0
+                    self.last_custom_gesture_name = None
 
         return result_summary

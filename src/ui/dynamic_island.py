@@ -214,7 +214,16 @@ class DynamicIslandOverlay:
             elif "WINDOW_DRAG" in self.last_action:
                 return 230.0, 38.0, "DRAG", "WINDOW DRAG", "Active"
             elif "WINDOW_SNAP" in self.last_action:
-                return 220.0, 38.0, "SNAP", "WINDOW SNAP", "Win + Left"
+                sub = "Win + Left"
+                if "RIGHT" in self.last_action:
+                    sub = "Win + Right"
+                return 220.0, 38.0, "SNAP", "WINDOW SNAP", sub
+            elif "WINDOW_MAXIMIZE" in self.last_action:
+                return 220.0, 38.0, "SNAP", "WINDOW SNAP", "Maximize"
+            elif "WINDOW_MINIMIZE" in self.last_action:
+                return 220.0, 38.0, "SNAP", "WINDOW SNAP", "Minimize"
+            elif "SCROLL" in self.last_action:
+                return 210.0, 38.0, "SCROLL", "SMOOTH SCROLL", "Kinetic"
             elif "DESKTOP" in self.last_action:
                 return 230.0, 38.0, "DESKTOP", "DESKTOP", "Flipped"
 

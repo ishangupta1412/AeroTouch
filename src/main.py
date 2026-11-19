@@ -34,13 +34,15 @@ from src.telemetry.session_logger import SessionTelemetryLogger
 from src.ui.floating_orb import FloatingOrbOverlay
 from src.ui.hud import SpatialHUD
 from src.ui.dynamic_island import DynamicIslandOverlay
+from src.ui.tray import AeroTouchTrayDaemon
 
 
 def run_aerotouch(
     camera_index: int = 0,
     use_orb: bool = False,
     use_island: bool = True,
-    show_preview: bool = True
+    show_preview: bool = True,
+    use_tray: bool = False
 ):
     print("=" * 65)
     print("      AEROTOUCH: AUTONOMOUS DUAL-HAND SPATIAL OPERATING LAYER     ")
@@ -88,6 +90,45 @@ def run_aerotouch(
         orb = FloatingOrbOverlay(size=88)
         orb.start()
 
+    tray: Optional[AeroTouchTrayDaemon] = None
+    exit_requested = False
+
+    if use_tray:
+        def _tray_toggle_pause():
+            orchestrator.is_locked = not orchestrator.is_locked
+            return orchestrator.is_locked
+
+        def _tray_recalibrate():
+            orchestrator.recalibrate()
+
+        def _tray_cortex():
+            try:
+                from src.cortex.session_analyst import SessionAnalyst
+                SessionAnalyst().analyze_latest_session()
+            except Exception as e:
+                print(f"[Tray Cortex Error]: {e}")
+
+        def _tray_toggle_preview():
+            nonlocal show_preview
+            show_preview = not show_preview
+            if not show_preview:
+                cv2.destroyAllWindows()
+            return show_preview
+
+        def _tray_exit():
+            nonlocal exit_requested
+            exit_requested = True
+
+        tray = AeroTouchTrayDaemon(
+            on_toggle_pause=_tray_toggle_pause,
+            on_recalibrate=_tray_recalibrate,
+            on_cortex_tune=_tray_cortex,
+            on_toggle_preview=_tray_toggle_preview,
+            on_exit=_tray_exit
+        )
+        tray.start()
+        tray.notify("AeroTouch", "Spatial Operating Layer running in background tray mode.")
+
     print("\n[ACTIVE]: AeroTouch Precision Spatial Engine Running. Press 'q' to stop.")
     print("Controls:")
     print("  * Move Right Index Finger: Move Mouse (Rock-Solid Deadband Filtering)")
@@ -105,7 +146,7 @@ def run_aerotouch(
     current_fps = 60.0
 
     try:
-        while True:
+        while not exit_requested:
             ret, frame = cap.read()
             if not ret:
                 break
@@ -177,6 +218,8 @@ def run_aerotouch(
     except KeyboardInterrupt:
         print("\nStopping AeroTouch...")
     finally:
+        if tray:
+            tray.stop()
         cap.release()
         tracker.close()
         cv2.destroyAllWindows()
@@ -209,7 +252,10 @@ def main():
     args = sys.argv[1:]
     use_orb = "--orb" in args
     use_island = "--no-island" not in args
+    use_tray = "--tray" in args or "--background" in args
     headless = "--headless" in args or ("--orb" in args and "--preview" not in args)
+    if use_tray and "--preview" not in args:
+        headless = True
     show_preview = not headless
 
     cam_id = 0
@@ -221,7 +267,8 @@ def main():
         camera_index=cam_id,
         use_orb=use_orb,
         use_island=use_island,
-        show_preview=show_preview
+        show_preview=show_preview,
+        use_tray=use_tray
     )
 
 

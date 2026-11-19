@@ -189,6 +189,16 @@ class SpatialHUD:
                 cv2.putText(frame, "[WINDOW DRAG]", (wrist_pt[0] - 50, wrist_pt[1] - 45),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 255), 2, cv2.LINE_AA)
 
+            # Two-Finger Scroll Indicator
+            is_scroll = action_state.get("is_scroll", False)
+            if is_scroll:
+                idx_pt = (int(right_hand.index_tip[0] * w), int(right_hand.index_tip[1] * h))
+                mid_pt = (int(right_hand.middle_tip[0] * w), int(right_hand.middle_tip[1] * h))
+                center_pt = ((idx_pt[0] + mid_pt[0]) // 2, (idx_pt[1] + mid_pt[1]) // 2)
+                cv2.circle(frame, center_pt, 25, (255, 160, 0), 2, cv2.LINE_AA)
+                cv2.putText(frame, "[SMOOTH SCROLL]", (center_pt[0] - 60, center_pt[1] - 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 160, 0), 2, cv2.LINE_AA)
+
         if left_hand is not None:
             self.draw_skeleton(frame, left_hand, COLOR_LEFT_AMBER, is_right=False)
 

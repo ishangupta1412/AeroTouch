@@ -1,10 +1,90 @@
 """
 AeroTouch Perspective & Coordinate Normalization Engine
 Solves the HandWave corner-reachability defect by providing adaptive ergonomic bounding
-with dual-axis sensitivity curvature.
+with dual-axis sensitivity curvature and non-linear pointer ballistics.
 """
 
-from typing import Tuple
+import math
+from typing import Optional, Tuple
+
+
+class PointerBallistics:
+    """
+    Non-linear mouse acceleration curve matching Apple macOS & Windows 'Enhance Pointer Precision'.
+    - Sniper Precision (< 0.003 normalized velocity): 0.5x speed for sub-pixel accuracy on small buttons.
+    - Nominal 1:1 Range (0.003 - 0.015 velocity): Linear 1.0x response.
+    - High-Speed Flick (> 0.015 velocity): Exponential power scaling up to 2.2x to effortlessly cross 4K screens.
+    """
+
+    def __init__(
+        self,
+        precision_threshold: float = 0.003,
+        precision_gain: float = 0.5,
+        flick_threshold: float = 0.015,
+        max_multiplier: float = 2.2,
+        power: float = 1.3
+    ):
+        self.precision_threshold = precision_threshold
+        self.precision_gain = precision_gain
+        self.flick_threshold = flick_threshold
+        self.max_multiplier = max_multiplier
+        self.power = power
+
+        self.last_x: Optional[float] = None
+        self.last_y: Optional[float] = None
+        self.last_time: Optional[float] = None
+
+    def apply(
+        self,
+        current_x: float,
+        current_y: float,
+        timestamp: Optional[float] = None
+    ) -> Tuple[float, float]:
+        """Applies non-linear velocity ballistics to normalized coordinates [0.0, 1.0]."""
+        if self.last_x is None or self.last_y is None or timestamp is None or self.last_time is None:
+            self.last_x = current_x
+            self.last_y = current_y
+            self.last_time = timestamp
+            return current_x, current_y
+
+        dt = max(timestamp - self.last_time, 0.001)
+        dx = current_x - self.last_x
+        dy = current_y - self.last_y
+        dist = math.hypot(dx, dy)
+        vel = dist / dt  # normalized units per second
+
+        # Compute dynamic multiplier
+        v_low = self.precision_threshold * 60.0
+        v_high = self.flick_threshold * 60.0
+
+        if vel < v_low:
+            # Low-speed sniper precision mode (down to 0.5x)
+            factor = vel / max(v_low, 1e-4)
+            mult = self.precision_gain + (1.0 - self.precision_gain) * factor
+        elif vel > v_high:
+            # High-speed flick acceleration (up to 2.2x)
+            excess = (vel - v_high) / 1.0
+            mult = min(self.max_multiplier, 1.0 + (excess ** self.power))
+        else:
+            mult = 1.0
+
+        accelerated_x = self.last_x + dx * mult
+        accelerated_y = self.last_y + dy * mult
+
+        # Clamp strictly within [0.0, 1.0]
+        accelerated_x = max(0.0, min(1.0, accelerated_x))
+        accelerated_y = max(0.0, min(1.0, accelerated_y))
+
+        self.last_x = accelerated_x
+        self.last_y = accelerated_y
+        self.last_time = timestamp
+        return accelerated_x, accelerated_y
+
+    def reset(self):
+        """Resets tracking state on tracking loss or mode change."""
+        self.last_x = None
+        self.last_y = None
+        self.last_time = None
 
 
 class ScreenSpaceMapper:

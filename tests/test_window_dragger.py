@@ -66,6 +66,15 @@ class TestWindowDragger(unittest.TestCase):
         fist_hand = self._make_fist_hand()
         self.assertTrue(GestureMath.is_fist(fist_hand))
 
+    def test_pointing_hand_never_classified_as_fist(self):
+        """Pointing (index extended) must NEVER trigger a fist or window drag."""
+        fist_hand = self._make_fist_hand()
+        pts = list(fist_hand.points)
+        # Extend index finger (tip 8 extended away from wrist 0)
+        pts[8] = (0.5, 0.1, 0.0)
+        pointing_hand = HandLandmarks(points=pts, handedness="Right")
+        self.assertFalse(GestureMath.is_fist(pointing_hand))
+
     def test_orchestrator_fist_drag_lifecycle(self):
         orchestrator = SpatialOrchestrator()
         # Mock kernel window functions

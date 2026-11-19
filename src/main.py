@@ -242,8 +242,13 @@ def run_aerotouch(
                     is_rec = hud.recorder.toggle_recording()
                     status = "STARTED" if is_rec else "STOPPED"
                     print(f"\n[AeroTouch Studio]: Gesture Recording {status} -> {hud.recorder._current_file}")
-                elif cv2.getWindowProperty(preview_window_name, cv2.WND_PROP_VISIBLE) < 1:
-                    break
+
+                # Check if preview window was closed via 'X' button
+                try:
+                    if cv2.getWindowProperty(preview_window_name, cv2.WND_PROP_VISIBLE) < 1:
+                        break
+                except Exception:
+                    pass
             else:
                 time.sleep(0.001)
 

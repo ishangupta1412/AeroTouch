@@ -43,6 +43,27 @@ class TestPointerBallistics(unittest.TestCase):
         self.assertIsNone(self.ballistics.last_x)
         self.assertIsNone(self.ballistics.last_time)
 
+    def test_tracking_gap_resync(self):
+        """Tracking loss gap (> 0.2s) must resync instantly without velocity explosion."""
+        self.ballistics.apply(0.8, 0.8, timestamp=1.0)
+        # Gap of 1.5 seconds, hand reappears at (0.2, 0.2)
+        x, y = self.ballistics.apply(0.2, 0.2, timestamp=2.5)
+        self.assertEqual(x, 0.2)
+        self.assertEqual(y, 0.2)
+
+    def test_drift_elimination(self):
+        """Dynamic anchor must eliminate pointer drift and return to hand position."""
+        self.ballistics.apply(0.5, 0.5, timestamp=1.0)
+        # High speed sweep
+        self.ballistics.apply(0.7, 0.7, timestamp=1.016)
+        # Return hand to center
+        self.ballistics.apply(0.5, 0.5, timestamp=1.032)
+        # Stationary for a few frames
+        for t in range(25):
+            x, y = self.ballistics.apply(0.5, 0.5, timestamp=1.048 + t * 0.016)
+        self.assertAlmostEqual(x, 0.5, delta=0.01)
+        self.assertAlmostEqual(y, 0.5, delta=0.01)
+
 
 if __name__ == '__main__':
     unittest.main()

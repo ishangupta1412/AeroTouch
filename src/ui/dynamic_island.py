@@ -101,7 +101,7 @@ class DynamicIslandOverlay:
         self.running = False
         if self.root:
             try:
-                self.root.after(0, self.root.quit)
+                self.root.after(0, self._cleanup_root)
             except Exception:
                 pass
         if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
@@ -109,6 +109,15 @@ class DynamicIslandOverlay:
                 self._thread.join(timeout=0.5)
             except Exception:
                 pass
+
+    def _cleanup_root(self):
+        try:
+            if self.root:
+                self.root.quit()
+                self.root.destroy()
+                self.root = None
+        except Exception:
+            pass
 
     def update_telemetry(
         self,
@@ -170,7 +179,15 @@ class DynamicIslandOverlay:
         self._enable_click_through(hwnd)
 
         self._tick_loop()
-        self.root.mainloop()
+        try:
+            self.root.mainloop()
+        finally:
+            try:
+                if self.root:
+                    self.root.destroy()
+            except Exception:
+                pass
+            self.root = None
 
     def _drain_queue(self):
         while not self._state_queue.empty():

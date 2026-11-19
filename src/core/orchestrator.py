@@ -320,5 +320,14 @@ class SpatialOrchestrator:
                 else:
                     self.custom_gesture_streak = 0
                     self.last_custom_gesture_name = None
+        else:
+            # Tracking lost / Hand absent: reset spatial state cleanly
+            self.filter.reset()
+            self.ballistics.reset()
+            self.engine.pinch_streak = 0
+            self.engine.middle_pinch_streak = 0
+            self.engine.is_pinching = False
+            if self.dragger.is_dragging:
+                self.dragger.end_drag()
 
         return result_summary

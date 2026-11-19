@@ -50,8 +50,9 @@ class PointerBallistics:
 
         Coordinate-space separation guarantee:
           - `self.last_raw_x/y` always tracks the RAW camera-space hand position.
-          - `self.cursor_x/y` accumulates scaled deltas and represents the virtual cursor.
+          - `self.cursor_x/y` accumulates scaled deltas with dynamic anchor relaxation.
           - dx = current_raw - last_raw  →  never contaminates from accelerated output.
+          - Dynamic Anchor: relaxed gently to hand coordinate when stationary, killing drift.
         """
         if self.last_raw_x is None or self.last_raw_y is None or timestamp is None or self.last_time is None:
             self.last_raw_x = current_x
@@ -62,6 +63,14 @@ class PointerBallistics:
             return current_x, current_y
 
         dt = max(timestamp - self.last_time, 0.001)
+        if dt > 0.2:  # Tracking gap > 200ms -> resync cleanly without teleport
+            self.last_raw_x = current_x
+            self.last_raw_y = current_y
+            self.cursor_x = current_x
+            self.cursor_y = current_y
+            self.last_time = timestamp
+            return current_x, current_y
+
         # Delta measured in RAW camera space — no feedback from accelerated cursor
         dx = current_x - self.last_raw_x
         dy = current_y - self.last_raw_y
@@ -83,9 +92,19 @@ class PointerBallistics:
         else:
             mult = 1.0
 
-        # Accumulate scaled delta onto virtual cursor — strictly separate from raw tracking
-        self.cursor_x = max(0.0, min(1.0, self.cursor_x + dx * mult))
-        self.cursor_y = max(0.0, min(1.0, self.cursor_y + dy * mult))
+        # Accumulate scaled delta onto virtual cursor
+        new_cursor_x = self.cursor_x + dx * mult
+        new_cursor_y = self.cursor_y + dy * mult
+
+        # Dynamic Anchor: When moving slowly or stationary, gently relax cursor towards hand
+        # This completely eliminates pointer drift while preserving high-speed flick reaches
+        relax_speed = max(0.0, 1.0 - (vel / max(v_high, 1e-4)))
+        alpha = 0.15 * relax_speed
+        new_cursor_x += (current_x - new_cursor_x) * alpha
+        new_cursor_y += (current_y - new_cursor_y) * alpha
+
+        self.cursor_x = max(0.0, min(1.0, new_cursor_x))
+        self.cursor_y = max(0.0, min(1.0, new_cursor_y))
 
         # Advance RAW tracker — NEVER store accelerated value here
         self.last_raw_x = current_x

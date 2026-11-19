@@ -57,22 +57,30 @@ def run_aerotouch(
 
     tracker = DualHandTracker(num_hands=2)
 
-    cap = cv2.VideoCapture(camera_index)
-    ret_test, _ = cap.read() if cap.isOpened() else (False, None)
-    if not ret_test:
+    def _init_camera(idx: int) -> Optional[cv2.VideoCapture]:
+        # On Windows, prefer DirectShow (CAP_DSHOW) for zero matrix-stride assertion bugs and instant start
+        backends = [cv2.CAP_DSHOW, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]
+        for backend in backends:
+            c = cv2.VideoCapture(idx, backend)
+            if c.isOpened():
+                ret_ok, _ = c.read()
+                if ret_ok:
+                    c.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                    c.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                    c.set(cv2.CAP_PROP_FPS, 60)
+                    return c
+                c.release()
+        return None
+
+    cap = _init_camera(camera_index)
+    if cap is None:
         fallback_idx = 1 if camera_index == 0 else 0
         print(f"[AeroTouch Vision]: Camera index {camera_index} unavailable, trying fallback index {fallback_idx}...")
-        cap.release()
-        cap = cv2.VideoCapture(fallback_idx)
-        ret_test, _ = cap.read() if cap.isOpened() else (False, None)
-        if not ret_test:
+        cap = _init_camera(fallback_idx)
+        if cap is None:
             print(f"[ERROR]: Could not open webcam at index {camera_index} or {fallback_idx}.")
             print("Please check Windows camera privacy settings or close other camera apps.")
             return
-
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_FPS, 60)
 
     # Initialize Telemetry Logger
     telemetry = SessionTelemetryLogger()
@@ -159,11 +167,19 @@ def run_aerotouch(
     start_time = time.time()
     current_fps = 60.0
 
+    preview_window_name = "AeroTouch Spatial Kernel [Press Q to Exit, R to Record]"
+
     try:
         while not exit_requested:
-            ret, frame = cap.read()
-            if not ret:
-                break
+            try:
+                ret, frame = cap.read()
+            except (cv2.error, Exception):
+                time.sleep(0.01)
+                continue
+
+            if not ret or frame is None or getattr(frame, "size", 0) == 0:
+                time.sleep(0.005)
+                continue
 
             # Natural mirrored selfie view (OpenCV standard for interactive spatial control)
             frame = cv2.flip(frame, 1)
@@ -218,19 +234,23 @@ def run_aerotouch(
 
             if show_preview:
                 frame = hud.render_hud(frame, right_hand, left_hand, result, fps=current_fps)
-                cv2.imshow("AeroTouch Spatial Kernel [Press Q to Exit, R to Record]", frame)
+                cv2.imshow(preview_window_name, frame)
                 key = cv2.waitKey(1) & 0xFF
-                if key == ord('q'):
+                if key in (ord('q'), 27):  # 'q' or ESC only
                     break
                 elif key == ord('r'):
                     is_rec = hud.recorder.toggle_recording()
                     status = "STARTED" if is_rec else "STOPPED"
                     print(f"\n[AeroTouch Studio]: Gesture Recording {status} -> {hud.recorder._current_file}")
+                elif cv2.getWindowProperty(preview_window_name, cv2.WND_PROP_VISIBLE) < 1:
+                    break
             else:
                 time.sleep(0.001)
 
     except KeyboardInterrupt:
         print("\nStopping AeroTouch...")
+    except Exception as e:
+        print(f"\n[AeroTouch Runtime Warning]: Handled stream interrupt: {e}")
     finally:
         if tray:
             tray.stop()

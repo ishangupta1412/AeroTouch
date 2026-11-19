@@ -384,21 +384,27 @@ class RollingVisionAnalyst:
 
             screenshot_path = None
             try:
-                # Step 1: Capture screenshot
-                screenshot_path = _take_screenshot(TEMP_SCREENSHOT_DIR)
-                if not screenshot_path:
-                    time.sleep(self.screenshot_interval)
-                    continue
+                # Skip GDI screen capture entirely when Moondream cloud is not configured.
+                # _lazy_load() returns False if no API key → use Win32 title fallback
+                # directly — avoids 5MB GDI bitmaps and DWM compositor micro-freezes.
+                if not self.moondream._lazy_load():
+                    context = self.moondream._fallback_context("")
+                else:
+                    # Step 1: Capture screenshot (only when Moondream is actually live)
+                    screenshot_path = _take_screenshot(TEMP_SCREENSHOT_DIR)
+                    if not screenshot_path:
+                        time.sleep(self.screenshot_interval)
+                        continue
 
-                # Step 2: Moondream inference (~200–400ms)
-                context = self.moondream.analyze_screenshot(screenshot_path)
+                    # Step 2: Moondream inference (~200–400ms)
+                    context = self.moondream.analyze_screenshot(screenshot_path)
 
-                # Step 3: DELETE screenshot immediately (5MB freed)
-                try:
-                    os.remove(screenshot_path)
-                    screenshot_path = None
-                except OSError:
-                    pass
+                    # Step 3: DELETE screenshot immediately (5MB freed)
+                    try:
+                        os.remove(screenshot_path)
+                        screenshot_path = None
+                    except OSError:
+                        pass
 
                 if context is None:
                     continue

@@ -30,9 +30,15 @@ class PointerBallistics:
         self.max_multiplier = max_multiplier
         self.power = power
 
-        self.last_x: Optional[float] = None
-        self.last_y: Optional[float] = None
+        # RAW input tracking — always follows camera-space hand coordinates
+        self.last_raw_x: Optional[float] = None
+        self.last_raw_y: Optional[float] = None
         self.last_time: Optional[float] = None
+
+        # VIRTUAL cursor position — accumulates accelerated deltas, clamped to [0, 1]
+        # Kept separate from raw hand coords so delta math never feeds on its own output
+        self.cursor_x: float = 0.5
+        self.cursor_y: float = 0.5
 
     def apply(
         self,
@@ -40,16 +46,25 @@ class PointerBallistics:
         current_y: float,
         timestamp: Optional[float] = None
     ) -> Tuple[float, float]:
-        """Applies non-linear velocity ballistics to normalized coordinates [0.0, 1.0]."""
-        if self.last_x is None or self.last_y is None or timestamp is None or self.last_time is None:
-            self.last_x = current_x
-            self.last_y = current_y
+        """Applies non-linear velocity ballistics to normalized coordinates [0.0, 1.0].
+
+        Coordinate-space separation guarantee:
+          - `self.last_raw_x/y` always tracks the RAW camera-space hand position.
+          - `self.cursor_x/y` accumulates scaled deltas and represents the virtual cursor.
+          - dx = current_raw - last_raw  →  never contaminates from accelerated output.
+        """
+        if self.last_raw_x is None or self.last_raw_y is None or timestamp is None or self.last_time is None:
+            self.last_raw_x = current_x
+            self.last_raw_y = current_y
+            self.cursor_x = current_x
+            self.cursor_y = current_y
             self.last_time = timestamp
             return current_x, current_y
 
         dt = max(timestamp - self.last_time, 0.001)
-        dx = current_x - self.last_x
-        dy = current_y - self.last_y
+        # Delta measured in RAW camera space — no feedback from accelerated cursor
+        dx = current_x - self.last_raw_x
+        dy = current_y - self.last_raw_y
         dist = math.hypot(dx, dy)
         vel = dist / dt  # normalized units per second
 
@@ -68,23 +83,34 @@ class PointerBallistics:
         else:
             mult = 1.0
 
-        accelerated_x = self.last_x + dx * mult
-        accelerated_y = self.last_y + dy * mult
+        # Accumulate scaled delta onto virtual cursor — strictly separate from raw tracking
+        self.cursor_x = max(0.0, min(1.0, self.cursor_x + dx * mult))
+        self.cursor_y = max(0.0, min(1.0, self.cursor_y + dy * mult))
 
-        # Clamp strictly within [0.0, 1.0]
-        accelerated_x = max(0.0, min(1.0, accelerated_x))
-        accelerated_y = max(0.0, min(1.0, accelerated_y))
-
-        self.last_x = accelerated_x
-        self.last_y = accelerated_y
+        # Advance RAW tracker — NEVER store accelerated value here
+        self.last_raw_x = current_x
+        self.last_raw_y = current_y
         self.last_time = timestamp
-        return accelerated_x, accelerated_y
+        return self.cursor_x, self.cursor_y
 
     def reset(self):
         """Resets tracking state on tracking loss or mode change."""
-        self.last_x = None
-        self.last_y = None
+        self.last_raw_x = None
+        self.last_raw_y = None
         self.last_time = None
+        self.cursor_x = 0.5
+        self.cursor_y = 0.5
+
+    # ── Legacy test-compatibility properties ──────────────────────────────────
+    @property
+    def last_x(self) -> Optional[float]:
+        """Legacy alias: returns raw hand X (not accelerated cursor X)."""
+        return self.last_raw_x
+
+    @property
+    def last_y(self) -> Optional[float]:
+        """Legacy alias: returns raw hand Y (not accelerated cursor Y)."""
+        return self.last_raw_y
 
 
 class ScreenSpaceMapper:

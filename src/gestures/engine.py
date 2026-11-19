@@ -102,13 +102,16 @@ class GestureMath:
         return count
 
     @classmethod
-    def is_fist(cls, hand: HandLandmarks, fist_threshold: int = 1) -> bool:
+    def is_fist(cls, hand: HandLandmarks) -> bool:
         """
-        Returns True when the hand is a closed fist.
-        Fist = at most `fist_threshold` fingers extended.
-        A natural resting fist (thumb tucked or to the side) = 0 or 1 fingers extended.
+        Returns True ONLY when ALL 4 fingers are curled into the palm.
+        A pointing gesture (index extended) must NEVER be classified as a fist.
+        Fist = Index (8), Middle (12), Ring (16), AND Pinky (20) all curled.
         """
-        return cls.count_extended_fingers(hand) <= fist_threshold
+        for tip, pip in [(8, 6), (12, 10), (16, 14), (20, 18)]:
+            if cls.is_finger_extended(hand, tip, pip):
+                return False
+        return True
 
     @classmethod
     def is_shaka(cls, hand: HandLandmarks) -> bool:

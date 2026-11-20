@@ -12,6 +12,7 @@ class TestDualHandTracker(unittest.TestCase):
         # Initialize tracker with mocked detector to test pure logic without camera
         self.tracker = DualHandTracker.__new__(DualHandTracker)
         self.tracker.num_hands = 2
+        self.tracker.mirrored = False  # Base mock tests use unmirrored convention
         self.tracker.detector = MagicMock()
 
     def _build_anatomical_hand(self, handedness="Right", face_back=False, wrist_x=0.5):
@@ -151,6 +152,46 @@ class TestDualHandTracker(unittest.TestCase):
         self.assertIsNone(res["cursor_pos"])
         orchestrator.kernel.move_cursor.assert_not_called()
         orchestrator.kernel.click.assert_not_called()
+
+    def test_mirrored_webcam_right_hand_controls_pointer(self):
+        """In mirrored selfie mode, user's physical right hand (MediaPipe label 'Left') must become right_hand."""
+        self.tracker.mirrored = True
+        pts_right_in_mirror = self._build_anatomical_hand("Right", wrist_x=0.7)
+
+        mock_lm = [MagicMock(x=p[0], y=p[1], z=p[2]) for p in pts_right_in_mirror]
+        mock_result = MagicMock()
+        mock_result.hand_landmarks = [mock_lm]
+        # MediaPipe sees mirrored right hand as "Left"
+        mock_cat = MagicMock(category_name="Left", score=0.95)
+        mock_result.handedness = [[mock_cat]]
+        self.tracker.detector.detect.return_value = mock_result
+
+        dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
+        right_hand, left_hand = self.tracker.process_frame(dummy_img)
+
+        self.assertIsNotNone(right_hand, "Mirrored user's right hand must be assigned to right_hand!")
+        self.assertIsNone(left_hand)
+        self.assertEqual(right_hand.handedness, "Right")
+
+    def test_mirrored_webcam_left_hand_controls_modifier(self):
+        """In mirrored selfie mode, user's physical left hand (MediaPipe label 'Right') must become left_hand."""
+        self.tracker.mirrored = True
+        pts_left_in_mirror = self._build_anatomical_hand("Left", wrist_x=0.3)
+
+        mock_lm = [MagicMock(x=p[0], y=p[1], z=p[2]) for p in pts_left_in_mirror]
+        mock_result = MagicMock()
+        mock_result.hand_landmarks = [mock_lm]
+        # MediaPipe sees mirrored left hand as "Right"
+        mock_cat = MagicMock(category_name="Right", score=0.95)
+        mock_result.handedness = [[mock_cat]]
+        self.tracker.detector.detect.return_value = mock_result
+
+        dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
+        right_hand, left_hand = self.tracker.process_frame(dummy_img)
+
+        self.assertIsNone(right_hand, "Mirrored user's left hand must NOT be assigned to right_hand!")
+        self.assertIsNotNone(left_hand)
+        self.assertEqual(left_hand.handedness, "Left")
 
 
 if __name__ == "__main__":

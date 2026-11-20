@@ -42,9 +42,11 @@ class DualHandTracker:
         num_hands: int = 2,
         min_hand_detection_confidence: float = 0.5,
         min_hand_presence_confidence: float = 0.5,
-        min_tracking_confidence: float = 0.5
+        min_tracking_confidence: float = 0.5,
+        mirrored: bool = True
     ):
         self.num_hands = num_hands
+        self.mirrored = mirrored
         self.detector = None
 
         try:
@@ -102,28 +104,53 @@ class DualHandTracker:
         """
         Validates handedness using rotation-invariant 3D chirality and spatial heuristics.
         Does NOT flip when hand turns between palm and back of hand.
+        When mirrored=True (selfie camera view), corrects for MediaPipe's inverted
+        external-observer perspective so that user's physical Right hand is classified as Right.
         """
-        if len(pts) < 21:
-            return model_label
+        is_mirrored = getattr(self, "mirrored", True)
 
-        # If MediaPipe ML model has high confidence (>= 0.65), trust it
-        if score >= 0.65 and model_label in ("Right", "Left"):
-            return model_label
+        # On a mirrored frame, MediaPipe determines handedness from an external observer's view:
+        # A physical Right hand in a mirror looks like a Left hand to MediaPipe.
+        # So we invert the label when mirrored=True to match the user's anatomical hand:
+        if is_mirrored and model_label in ("Right", "Left"):
+            effective_model_label = "Left" if model_label == "Right" else "Right"
+        else:
+            effective_model_label = model_label
+
+        if len(pts) < 21:
+            return effective_model_label
+
+        # If MediaPipe ML model has high confidence (>= 0.65), trust it (with mirror correction applied)
+        if score >= 0.65 and effective_model_label in ("Right", "Left"):
+            return effective_model_label
 
         # Fallback to rotation-invariant 3D chirality
         chirality = self._compute_3d_chirality(pts)
         if abs(chirality) > 1e-6:
-            # Negative triple product = Right hand, Positive = Left hand
-            return "Right" if chirality < 0 else "Left"
+            # Under horizontal reflection (x -> -x), scalar triple product flips sign:
+            # Unmirrored: negative = Right, positive = Left
+            # Mirrored: positive = Right, negative = Left
+            if is_mirrored:
+                return "Right" if chirality > 0 else "Left"
+            else:
+                return "Right" if chirality < 0 else "Left"
 
-        # Spatial prior: on mirrored frame, right side of screen is user's Right hand
+        # Spatial prior:
+        # On mirrored frame: right side of screen (wrist_x > 0.5) is user's Right hand
+        # On unmirrored frame: left side of screen (wrist_x < 0.5) is user's Right hand
         wrist_x = pts[0][0]
-        if wrist_x > 0.55:
-            return "Right"
-        elif wrist_x < 0.45:
-            return "Left"
+        if is_mirrored:
+            if wrist_x > 0.55:
+                return "Right"
+            elif wrist_x < 0.45:
+                return "Left"
+        else:
+            if wrist_x < 0.45:
+                return "Right"
+            elif wrist_x > 0.55:
+                return "Left"
 
-        return model_label
+        return effective_model_label
 
     def process_frame(self, bgr_image) -> Tuple[Optional[HandLandmarks], Optional[HandLandmarks]]:
         """
@@ -175,8 +202,10 @@ class DualHandTracker:
                     raw_label = raw_cat.category_name
                     score = getattr(raw_cat, "score", 1.0)
                     wrist_x = pts[0][0]
+                    verified_label = self._verify_anatomical_handedness(pts, raw_label, score=score)
                     detected_hands.append({
                         "pts": pts,
+                        "label": verified_label,
                         "raw_label": raw_label,
                         "score": score,
                         "wrist_x": wrist_x
@@ -185,19 +214,18 @@ class DualHandTracker:
                 h0 = detected_hands[0]
                 h1 = detected_hands[1]
 
-                # Case 1: MediaPipe already detected distinct Right and Left with good confidence
-                if h0["raw_label"] != h1["raw_label"] and h0["score"] >= 0.65 and h1["score"] >= 0.65:
-                    if h0["raw_label"] == "Right":
+                # Case 1: Verified distinct Right and Left with good confidence
+                if h0["label"] != h1["label"] and h0["score"] >= 0.65 and h1["score"] >= 0.65:
+                    if h0["label"] == "Right":
                         right_hand = HandLandmarks(points=h0["pts"], handedness="Right")
                         left_hand = HandLandmarks(points=h1["pts"], handedness="Left")
                     else:
                         right_hand = HandLandmarks(points=h1["pts"], handedness="Right")
                         left_hand = HandLandmarks(points=h0["pts"], handedness="Left")
                 else:
-                    # Case 2: MediaPipe had duplicate labels (e.g. [Right, Right] or [Left, Left])
-                    # or lower confidence. Disambiguate using horizontal position on mirrored screen:
-                    # User's Left hand is on screen left (smaller wrist_x).
-                    # User's Right hand is on screen right (larger wrist_x).
+                    # Case 2: Ambiguous or duplicate labels -> disambiguate using horizontal position:
+                    # Hand on screen right (larger wrist_x) is user's Right hand (pointer)
+                    # Hand on screen left (smaller wrist_x) is user's Left hand (modifier)
                     if h0["wrist_x"] >= h1["wrist_x"]:
                         right_hand = HandLandmarks(points=h0["pts"], handedness="Right")
                         left_hand = HandLandmarks(points=h1["pts"], handedness="Left")

@@ -55,7 +55,7 @@ def run_aerotouch(
     w, h = orchestrator.kernel.get_screen_resolution()
     print(f"Hardware Monitor: {w}x{h} Native Win32 Subsystem Linked")
 
-    tracker = DualHandTracker(num_hands=2)
+    tracker = DualHandTracker(num_hands=2, mirrored=True)
 
     def _init_camera(idx: int) -> Optional[cv2.VideoCapture]:
         # On Windows, prefer DirectShow (CAP_DSHOW) for zero matrix-stride assertion bugs and instant start

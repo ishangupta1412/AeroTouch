@@ -15,6 +15,8 @@ from src.gestures.engine import BimanualEngine, HandLandmarks, HandMode, Gesture
 from src.os_bridge.win32_kernel import VirtualKey, Win32KernelBridge
 from src.service.window_dragger import WindowDragger
 from src.service.scroll_controller import KineticScrollController
+from src.service.swipe_detector import FluidSwipeDetector
+from src.service.spatial_zoom import BimanualZoomController
 from src.os_bridge.volume_control import MediaScalarController
 from src.os_bridge.audio_feedback import play_chime_async
 from src.gestures.few_shot_engine import FewShotGestureEngine
@@ -49,8 +51,11 @@ class SpatialOrchestrator:
 
         self.dragger = WindowDragger()
         self.scroll_ctrl = KineticScrollController()
+        self.swipe_detector = FluidSwipeDetector()
+        self.zoom_ctrl = BimanualZoomController()
         self.ballistics = PointerBallistics()
         self.media_ctrl = MediaScalarController()
+        self.air_canvas = None
         self.last_snap_time: float = 0.0
 
         # Few-Shot Custom Gesture Engine
@@ -71,6 +76,8 @@ class SpatialOrchestrator:
         self.filter.reset()
         self.ballistics.reset()
         self.scroll_ctrl.reset()
+        self.swipe_detector.reset()
+        self.zoom_ctrl.reset()
         self.dragger.reset()
         self.custom_gesture_streak = 0
 
@@ -153,6 +160,63 @@ class SpatialOrchestrator:
                 pass
 
         return defaults
+
+    def attach_air_canvas(self, air_canvas) -> None:
+        """Attaches live desktop AirCanvas overlay instance."""
+        self.air_canvas = air_canvas
+
+    def handle_voice_intent(self, intent: str) -> Optional[str]:
+        """
+        Executes multimodal voice intents directly through the OS kernel bridge.
+        Returns the name of the executed action or None.
+        """
+        action = None
+        if intent == "VOICE_COPY":
+            self.kernel.hotkey(VirtualKey.VK_CONTROL, ord('C'))
+            action = "VOICE_COPY"
+        elif intent == "VOICE_PASTE":
+            self.kernel.hotkey(VirtualKey.VK_CONTROL, ord('V'))
+            action = "VOICE_PASTE"
+        elif intent == "VOICE_UNDO":
+            self.kernel.hotkey(VirtualKey.VK_CONTROL, ord('Z'))
+            action = "VOICE_UNDO"
+        elif intent == "VOICE_CLOSE_WINDOW":
+            self.kernel.hotkey(VirtualKey.VK_MENU, VirtualKey.VK_F4)
+            action = "VOICE_CLOSE_WINDOW"
+        elif intent == "VOICE_MAXIMIZE":
+            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_UP)
+            action = "VOICE_MAXIMIZE"
+        elif intent == "VOICE_MINIMIZE":
+            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_DOWN)
+            action = "VOICE_MINIMIZE"
+        elif intent == "VOICE_TASK_VIEW":
+            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_TAB)
+            action = "VOICE_TASK_VIEW"
+        elif intent == "VOICE_SCREENSHOT":
+            self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_SHIFT, ord('S'))
+            action = "VOICE_SCREENSHOT"
+        elif intent == "VOICE_TOGGLE_LASER":
+            if self.air_canvas:
+                self.air_canvas.set_laser(not self.air_canvas.laser_enabled)
+                action = "VOICE_LASER_TOGGLED"
+        elif intent == "VOICE_TOGGLE_DRAW":
+            if self.air_canvas:
+                self.air_canvas.set_drawing(not self.air_canvas.drawing_enabled)
+                action = "VOICE_DRAW_TOGGLED"
+        elif intent == "VOICE_CLEAR_CANVAS":
+            if self.air_canvas:
+                self.air_canvas.clear()
+                action = "VOICE_CANVAS_CLEARED"
+        elif intent == "VOICE_PAUSE":
+            self.is_locked = True
+            action = "VOICE_SYSTEM_PAUSED"
+            play_chime_async(is_lock=True)
+        elif intent == "VOICE_RESUME":
+            self.is_locked = False
+            action = "VOICE_SYSTEM_RESUMED"
+            play_chime_async(is_lock=False)
+
+        return action
 
     def process_spatial_frame(
         self,
@@ -249,6 +313,36 @@ class SpatialOrchestrator:
                 # Only move cursor when not actively two-finger scrolling
                 self.kernel.move_cursor(screen_x, screen_y)
 
+            # AirCanvas Real-Time Inking & Laser Reticle
+            if self.air_canvas:
+                is_draw_down = action_state.get("is_pinching", False)
+                self.air_canvas.update_cursor(screen_x, screen_y, is_drawing_down=is_draw_down)
+
+            # Bimanual Spatial Zoom (Ctrl + Wheel)
+            if left_hand is not None:
+                zoom_steps = self.zoom_ctrl.update(right_hand, left_hand, timestamp=timestamp)
+                if zoom_steps != 0:
+                    self.kernel.zoom(zoom_steps)
+                    result_summary["action_executed"] = f"BIMANUAL_ZOOM_{zoom_steps}"
+            else:
+                self.zoom_ctrl.reset()
+
+            # 3-Finger Fluid Desktop & Mission Control Swipes
+            swipe = self.swipe_detector.update(right_hand, timestamp=timestamp)
+            if swipe:
+                if swipe == "SWIPE_UP":
+                    self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_TAB)
+                    result_summary["action_executed"] = "TASK_VIEW"
+                elif swipe == "SWIPE_DOWN":
+                    self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_D)
+                    result_summary["action_executed"] = "SHOW_DESKTOP"
+                elif swipe == "SWIPE_LEFT":
+                    self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_CONTROL, VirtualKey.VK_LEFT)
+                    result_summary["action_executed"] = "DESKTOP_PREV"
+                elif swipe == "SWIPE_RIGHT":
+                    self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_CONTROL, VirtualKey.VK_RIGHT)
+                    result_summary["action_executed"] = "DESKTOP_NEXT"
+
             # Continuous Media Scalar Control (Volume)
             if left_mode == HandMode.MEDIA_CONTROL:
                 vol = self.media_ctrl.apply_volume(action_state["pinch_distance"])
@@ -324,6 +418,9 @@ class SpatialOrchestrator:
             # Tracking lost / Hand absent: reset spatial state cleanly
             self.filter.reset()
             self.ballistics.reset()
+            self.scroll_ctrl.reset()
+            self.swipe_detector.reset()
+            self.zoom_ctrl.reset()
             self.engine.pinch_streak = 0
             self.engine.middle_pinch_streak = 0
             self.engine.is_pinching = False

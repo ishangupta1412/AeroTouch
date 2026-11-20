@@ -46,6 +46,7 @@ class VirtualKey(IntEnum):
     VK_DOWN = 0x28
     VK_LWIN = 0x5B  # Windows key
     VK_D = 0x44
+    VK_F4 = 0x73
 
 
 class Win32KernelBridge:
@@ -90,6 +91,12 @@ class Win32KernelBridge:
     def scroll(self, steps: int) -> None:
         """Scroll wheel (positive = up, negative = down)."""
         self.user32.mouse_event(MOUSEEVENTF_WHEEL, 0, 0, int(steps * WHEEL_DELTA), 0)
+
+    def zoom(self, steps: int) -> None:
+        """Zooms via Ctrl + MouseWheel (positive = zoom in, negative = zoom out)."""
+        self.key_down(VirtualKey.VK_CONTROL)
+        self.scroll(steps)
+        self.key_up(VirtualKey.VK_CONTROL)
 
     def key_down(self, vk_code: int) -> None:
         self.user32.keybd_event(int(vk_code), 0, KEYEVENTF_KEYDOWN, 0)

@@ -35,6 +35,8 @@ from src.ui.floating_orb import FloatingOrbOverlay
 from src.ui.hud import SpatialHUD
 from src.ui.dynamic_island import DynamicIslandOverlay
 from src.ui.tray import AeroTouchTrayDaemon
+from src.ui.air_canvas import AirCanvasOverlay
+from src.service.voice_intent import VoiceIntentService
 from src.cortex.vision_analyst import RollingVisionAnalyst
 
 
@@ -44,7 +46,9 @@ def run_aerotouch(
     use_island: bool = True,
     show_preview: bool = True,
     use_tray: bool = False,
-    use_vision: bool = True
+    use_vision: bool = True,
+    use_canvas: bool = True,
+    use_voice: bool = True
 ):
     print("=" * 65)
     print("      AEROTOUCH: AUTONOMOUS DUAL-HAND SPATIAL OPERATING LAYER     ")
@@ -151,6 +155,24 @@ def run_aerotouch(
         )
         vision_analyst.start()
 
+    # ── AirCanvas & Presentation Laser Pointer Overlay ──────────────────
+    air_canvas: Optional[AirCanvasOverlay] = None
+    if use_canvas:
+        print("[UI]: Initializing Transparent Desktop AirCanvas & Laser Pointer...")
+        air_canvas = AirCanvasOverlay()
+        air_canvas.start()
+        orchestrator.attach_air_canvas(air_canvas)
+
+    # ── Multimodal Voice + Spatial Intent Service ───────────────────────
+    voice_service: Optional[VoiceIntentService] = None
+    if use_voice:
+        def _on_voice(intent: str):
+            action = orchestrator.handle_voice_intent(intent)
+            if action:
+                print(f"[AeroTouch Voice Intent]: Executed {action}")
+        voice_service = VoiceIntentService(on_intent=_on_voice)
+        voice_service.start()
+
     print("\n[ACTIVE]: AeroTouch Precision Spatial Engine Running. Press 'q' to stop.")
     print("Controls:")
     print("  * Move Right Index Finger: Move Mouse (Rock-Solid Deadband Filtering)")
@@ -161,6 +183,13 @@ def run_aerotouch(
     print("  * Left Hand Fist + Right Pinch: Snap Active Window Left")
     print("  * Left Hand 3-Fingers + Right Pinch: Switch Virtual Desktop")
     print("  * 🤙 Shaka (Thumb + Pinky): Hold 0.6s to Pause / Resume AeroTouch")
+    print("  * 3-Finger Swipe Up / Down: Task View (Win+Tab) / Show Desktop (Win+D)")
+    print("  * 3-Finger Swipe Left / Right: Switch Virtual Desktops (Win+Ctrl+Left/Right)")
+    print("  * Two-Hand Pinch & Move: Smooth Spatial Zoom (Figma, Maps, CAD, Web)")
+    print("  * Press 'l': Toggle Presentation Laser Pointer (Red Reticle)")
+    print("  * Press 'c': Toggle In-Air Drawing Mode (Neon Fading Ink)")
+    print("  * Press 'x': Clear All AirCanvas Annotations")
+    print("  * Voice Commands: 'copy', 'paste', 'close', 'maximize', 'screenshot', 'laser', 'draw', 'clear', 'pause'")
     print("  * Press 'r': Toggle Live Gesture Stream Recording (Dataset Generator)\n")
 
     frame_count = 0
@@ -181,8 +210,24 @@ def run_aerotouch(
                 time.sleep(0.005)
                 continue
 
+            # Guard against corrupt-stride frames (cv2 -215 _step>=minstep assertion)
+            # Can occur when DirectShow delivers a partial buffer during USB reconnect
+            try:
+                h, w = frame.shape[:2]
+                if h < 2 or w < 2:
+                    time.sleep(0.005)
+                    continue
+            except (AttributeError, ValueError):
+                time.sleep(0.005)
+                continue
+
             # Natural mirrored selfie view (OpenCV standard for interactive spatial control)
-            frame = cv2.flip(frame, 1)
+            try:
+                frame = cv2.flip(frame, 1)
+            except cv2.error:
+                # Stride assertion: drop frame and let the next read recover
+                time.sleep(0.005)
+                continue
 
             now = time.perf_counter()
             right_hand, left_hand = tracker.process_frame(frame)
@@ -242,6 +287,20 @@ def run_aerotouch(
                     is_rec = hud.recorder.toggle_recording()
                     status = "STARTED" if is_rec else "STOPPED"
                     print(f"\n[AeroTouch Studio]: Gesture Recording {status} -> {hud.recorder._current_file}")
+                elif key == ord('l'):
+                    if air_canvas:
+                        air_canvas.set_laser(not air_canvas.laser_enabled)
+                        st = "ACTIVE" if air_canvas.laser_enabled else "OFF"
+                        print(f"\n[AeroTouch Studio]: Presentation Laser Pointer {st}")
+                elif key == ord('c'):
+                    if air_canvas:
+                        air_canvas.set_drawing(not air_canvas.drawing_enabled)
+                        st = "ACTIVE" if air_canvas.drawing_enabled else "OFF"
+                        print(f"\n[AeroTouch Studio]: In-Air Drawing Canvas {st}")
+                elif key == ord('x'):
+                    if air_canvas:
+                        air_canvas.clear()
+                        print("\n[AeroTouch Studio]: AirCanvas Cleared.")
 
                 # Check if preview window was closed via 'X' button
                 try:
@@ -270,6 +329,10 @@ def run_aerotouch(
             orb.stop()
         if vision_analyst:
             vision_analyst.stop()
+        if air_canvas:
+            air_canvas.stop()
+        if voice_service:
+            voice_service.stop()
         telemetry.close()
         print("[AeroTouch]: Hardware links safely released.")
 
@@ -299,6 +362,8 @@ def main():
         headless = True
     show_preview = not headless
     use_vision = "--no-vision" not in args
+    use_canvas = "--no-canvas" not in args
+    use_voice = "--no-voice" not in args
 
     cam_id = 0
     for a in args:
@@ -312,6 +377,8 @@ def main():
         show_preview=show_preview,
         use_tray=use_tray,
         use_vision=use_vision,
+        use_canvas=use_canvas,
+        use_voice=use_voice,
     )
 
 

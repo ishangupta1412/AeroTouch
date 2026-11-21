@@ -20,6 +20,7 @@ from src.service.spatial_zoom import BimanualZoomController
 from src.os_bridge.volume_control import MediaScalarController
 from src.os_bridge.audio_feedback import play_chime_async
 from src.gestures.few_shot_engine import FewShotGestureEngine
+from src.games.engine import GameEngine
 
 
 class SpatialOrchestrator:
@@ -56,6 +57,7 @@ class SpatialOrchestrator:
         self.ballistics = PointerBallistics()
         self.media_ctrl = MediaScalarController()
         self.air_canvas = None
+        self.game_engine = GameEngine()
         self.last_snap_time: float = 0.0
 
         # Few-Shot Custom Gesture Engine
@@ -215,6 +217,10 @@ class SpatialOrchestrator:
             self.is_locked = False
             action = "VOICE_SYSTEM_RESUMED"
             play_chime_async(is_lock=False)
+        elif intent in ("VOICE_TOGGLE_GAME_MODE", "VOICE_GAME_MODE"):
+            is_gaming = self.game_engine.toggle(self.kernel)
+            action = "GAME_MODE_ENABLED" if is_gaming else "GAME_MODE_DISABLED"
+            play_chime_async(is_lock=not is_gaming)
 
         return action
 
@@ -265,6 +271,26 @@ class SpatialOrchestrator:
                 "cursor_pos": None,
                 "action_executed": toggle_action or ("HOLDING_SHAKA" if lock_progress > 0 else None),
                 "action_state": None
+            }
+
+        # Step 0.5: Dual-Hand Fist Bump (🤜🤛) Game Mode Trigger
+        bump_triggered, bump_progress = self.game_engine.evaluate_trigger(right_hand, left_hand, timestamp)
+        if bump_triggered:
+            is_gaming = self.game_engine.toggle(self.kernel)
+            toggle_action = "GAME_MODE_ENABLED" if is_gaming else "GAME_MODE_DISABLED"
+            play_chime_async(is_lock=not is_gaming)
+
+        # If Game Mode is active, delegate entire frame to GameEngine
+        if self.game_engine.is_active:
+            game_res = self.game_engine.process_frame(right_hand, left_hand, self.kernel, timestamp)
+            return {
+                "system_state": "GAME_MODE",
+                "lock_progress": bump_progress,
+                "mode": f"GAMING:{self.game_engine.active_profile_id}",
+                "cursor_pos": None,
+                "action_executed": toggle_action or ("GAME_ACTIVE" if game_res.get("is_gaming") else None),
+                "action_state": game_res,
+                "game_data": game_res
             }
 
         # Step 1: Left-hand modifier mode

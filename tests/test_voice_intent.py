@@ -89,6 +89,12 @@ class TestParseCommand(unittest.TestCase):
     def test_resume(self):
         self.assertEqual(self.svc.parse_command("resume"), "VOICE_RESUME")
 
+    def test_game_mode(self):
+        self.assertEqual(self.svc.parse_command("game mode"), "VOICE_TOGGLE_GAME_MODE")
+
+    def test_gaming_alias(self):
+        self.assertEqual(self.svc.parse_command("gaming"), "VOICE_TOGGLE_GAME_MODE")
+
     # --- embedded / natural-language phrases ---
     def test_embedded_copy(self):
         self.assertEqual(self.svc.parse_command("please copy this"), "VOICE_COPY")
@@ -149,6 +155,7 @@ class TestParseCommand(unittest.TestCase):
             "VOICE_TASK_VIEW", "VOICE_SCREENSHOT",
             "VOICE_TOGGLE_LASER", "VOICE_TOGGLE_DRAW",
             "VOICE_CLEAR_CANVAS", "VOICE_PAUSE", "VOICE_RESUME",
+            "VOICE_TOGGLE_GAME_MODE",
         }
         self.assertEqual(set(VOICE_INTENTS.values()), expected_canonical)
 

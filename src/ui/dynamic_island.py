@@ -240,6 +240,10 @@ class DynamicIslandOverlay:
         if self.system_state == "LOCKED":
             return 200.0, 36.0, "LOCKED", "PAUSED", "Show 🤙 to Resume"
 
+        # 2.5. System in Game Mode (Persistent until exited)
+        if self.system_state == "GAME_MODE":
+            return 220.0, 38.0, "GAME_MODE", "GAME MODE", "Active 🎮"
+
         # 3. Transient Action Morphing (Pillar style active card for 1.3s)
         if self.last_action and time_since_action < 1.3:
             if "LEFT_CLICK" in self.last_action:
@@ -263,6 +267,10 @@ class DynamicIslandOverlay:
                 return 210.0, 38.0, "SCROLL", "SMOOTH SCROLL", "Kinetic"
             elif "DESKTOP" in self.last_action:
                 return 230.0, 38.0, "DESKTOP", "DESKTOP", "Flipped"
+            elif "GAME_MODE_ENABLED" in self.last_action:
+                return 230.0, 40.0, "GAME_MODE", "GAME MODE", "ENABLED 🎮"
+            elif "GAME_MODE_DISABLED" in self.last_action:
+                return 210.0, 38.0, "CLICK", "GAME MODE", "OFF"
 
         # 4. Default Idle Active Capsule
         return 170.0, 34.0, "IDLE", "AEROTOUCH", "ACTIVE"
@@ -415,6 +423,16 @@ class DynamicIslandOverlay:
                                     fill=TEXT_PRIMARY, font=("Segoe UI", 8, "bold"))
             self.canvas.create_text(pill_x + 145, mid_y, text="Win+Left", anchor="w",
                                     fill=ACCENT_INDIGO, font=("Segoe UI", 8))
+
+        elif mode_type == "GAME_MODE":
+            dot_x = pill_x + 18
+            pulse_r = 4.0 + math.sin(self.anim_phase * 2.5) * 1.0
+            self.canvas.create_oval(dot_x - pulse_r, mid_y - pulse_r, dot_x + pulse_r, mid_y + pulse_r,
+                                    fill=ACCENT_EMERALD, outline="")
+            self.canvas.create_text(pill_x + 32, mid_y, text="GAME MODE", anchor="w",
+                                    fill=ACCENT_EMERALD, font=("Segoe UI", 8, "bold"))
+            self.canvas.create_text(pill_x + 130, mid_y, text="Active 🎮", anchor="w",
+                                    fill=ACCENT_AMBER, font=("Segoe UI", 8, "bold"))
 
         else:
             # Compact Idle State: Glowing Breathing Core + Micro Pill Badge

@@ -41,6 +41,8 @@ VOICE_INTENTS: Dict[str, str] = {
     "clear": "VOICE_CLEAR_CANVAS",
     "pause": "VOICE_PAUSE",
     "resume": "VOICE_RESUME",
+    "game mode": "VOICE_TOGGLE_GAME_MODE",
+    "gaming": "VOICE_TOGGLE_GAME_MODE",
 }
 
 

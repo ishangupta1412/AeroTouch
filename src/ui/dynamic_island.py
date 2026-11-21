@@ -99,14 +99,19 @@ class DynamicIslandOverlay:
 
     def stop(self):
         self.running = False
-        if self.root:
-            try:
-                self.root.after(0, self._cleanup_root)
-            except Exception:
-                pass
+        try:
+            self._state_queue.put_nowait({
+                "action": "STOP",
+                "system_state": "STOP",
+                "lock_progress": 0.0,
+                "action_executed": "STOP",
+                "mode": "STOP"
+            })
+        except Exception:
+            pass
         if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
             try:
-                self._thread.join(timeout=0.5)
+                self._thread.join(timeout=0.6)
             except Exception:
                 pass
 
@@ -144,7 +149,7 @@ class DynamicIslandOverlay:
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(
                 hwnd, GWL_EXSTYLE,
-                style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE
+                style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE
             )
         except Exception:
             pass
@@ -175,8 +180,12 @@ class DynamicIslandOverlay:
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         self.root.update()
-        hwnd = self.root.winfo_id()
-        self._enable_click_through(hwnd)
+        try:
+            child = self.root.winfo_id()
+            top = ctypes.windll.user32.GetParent(child) or child
+            self._enable_click_through(top)
+        except Exception:
+            pass
 
         self._tick_loop()
         try:
@@ -189,14 +198,19 @@ class DynamicIslandOverlay:
                 pass
             self.root = None
 
-    def _drain_queue(self):
+    def _drain_queue(self) -> bool:
         while not self._state_queue.empty():
             try:
                 state = self._state_queue.get_nowait()
-                self.system_state = state["system_state"]
-                self.lock_progress = state["lock_progress"]
+                if state.get("action") == "STOP" or state.get("action_executed") == "STOP":
+                    self.running = False
+                    self._cleanup_root()
+                    return True
 
-                action = state["action_executed"]
+                self.system_state = state.get("system_state", self.system_state)
+                self.lock_progress = state.get("lock_progress", self.lock_progress)
+
+                action = state.get("action_executed")
                 if action and action != "HOLDING_SHAKA":
                     self.last_action = action
                     self.last_action_time = time.time()
@@ -207,6 +221,7 @@ class DynamicIslandOverlay:
                             pass
             except queue.Empty:
                 break
+        return False
 
     def _determine_target_geometry(self) -> Tuple[float, float, str, str, str]:
         """
@@ -301,7 +316,9 @@ class DynamicIslandOverlay:
         if not self.running or not self.root:
             return
 
-        self._drain_queue()
+        stopped = self._drain_queue()
+        if stopped or not self.running or not self.root:
+            return
         self.anim_phase += 0.08
 
         # 1. Update Spring Physics
@@ -410,4 +427,5 @@ class DynamicIslandOverlay:
             self.canvas.create_text(pill_x + 115, mid_y, text="ACTIVE", anchor="w",
                                     fill=TEXT_SECONDARY, font=("Segoe UI", 7))
 
-        self.root.after(16, self._tick_loop)
+        if self.root and self.running:
+            self.root.after(16, self._tick_loop)

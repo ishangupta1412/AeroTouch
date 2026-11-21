@@ -35,6 +35,8 @@ class StrokePoint:
 class AirCanvasOverlay:
     """
     Transparent fullscreen desktop overlay for real-time spatial annotation and presentation laser pointing.
+    Remains hidden (withdrawn) by default so it never interferes with desktop apps or turns the screen black.
+    Only deiconifies when laser pointer or spatial inking is active.
     """
 
     def __init__(self, fade_duration: float = 3.5):
@@ -44,6 +46,7 @@ class AirCanvasOverlay:
         self.canvas: Optional[tk.Canvas] = None
         self._thread: Optional[threading.Thread] = None
         self._update_queue: queue.Queue = queue.Queue(maxsize=128)
+        self._is_visible: bool = False
 
         # State
         self.laser_enabled: bool = False
@@ -68,25 +71,12 @@ class AirCanvasOverlay:
     def stop(self):
         """Cleanly destroys the transparent overlay window."""
         self.running = False
-        if self.root:
-            try:
-                self.root.after(0, self._cleanup_root)
-            except Exception:
-                pass
+        self._post_update({"type": "stop"})
         if self._thread and self._thread.is_alive():
             try:
-                self._thread.join(timeout=0.5)
+                self._thread.join(timeout=0.6)
             except Exception:
                 pass
-
-    def _cleanup_root(self):
-        try:
-            if self.root:
-                self.root.quit()
-                self.root.destroy()
-                self.root = None
-        except Exception:
-            pass
 
     def set_laser(self, enabled: bool):
         """Toggles presentation laser pointer mode."""
@@ -117,13 +107,27 @@ class AirCanvasOverlay:
         except queue.Full:
             pass
 
+    def _get_toplevel_hwnd(self) -> int:
+        if not self.root:
+            return 0
+        try:
+            user32 = ctypes.windll.user32
+            child = self.root.winfo_id()
+            parent = user32.GetParent(child)
+            return parent if parent else child
+        except Exception:
+            try:
+                return self.root.winfo_id()
+            except Exception:
+                return 0
+
     def _enable_click_through(self, hwnd: int):
         try:
             user32 = ctypes.windll.user32
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(
                 hwnd, GWL_EXSTYLE,
-                style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE
+                style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE
             )
         except Exception:
             pass
@@ -135,6 +139,10 @@ class AirCanvasOverlay:
         self.root.wm_attributes("-topmost", True)
         self.root.wm_attributes("-transparentcolor", BG_COLORKEY)
         self.root.configure(bg=BG_COLORKEY)
+
+        # Start hidden/withdrawn so NO black screen or overlay interference on startup
+        self.root.withdraw()
+        self._is_visible = False
 
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
@@ -150,8 +158,9 @@ class AirCanvasOverlay:
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         self.root.update()
-        hwnd = self.root.winfo_id()
-        self._enable_click_through(hwnd)
+        top_hwnd = self._get_toplevel_hwnd()
+        if top_hwnd:
+            self._enable_click_through(top_hwnd)
 
         self._render_loop()
         try:
@@ -164,12 +173,23 @@ class AirCanvasOverlay:
                 pass
             self.root = None
 
-    def _drain_messages(self):
+    def _drain_messages(self) -> bool:
+        """Drains incoming thread messages. Returns True if a stop command was received."""
         while not self._update_queue.empty():
             try:
                 msg = self._update_queue.get_nowait()
                 mtype = msg.get("type")
-                if mtype == "laser_toggle":
+                if mtype == "stop":
+                    self.running = False
+                    if self.root:
+                        try:
+                            self.root.quit()
+                            self.root.destroy()
+                            self.root = None
+                        except Exception:
+                            pass
+                    return True
+                elif mtype == "laser_toggle":
                     self.laser_enabled = msg["enabled"]
                 elif mtype == "drawing_toggle":
                     self.drawing_enabled = msg["enabled"]
@@ -191,71 +211,101 @@ class AirCanvasOverlay:
                             self._current_stroke = []
             except queue.Empty:
                 break
+        return False
 
     def _render_loop(self):
         if not self.running or not self.root:
             return
 
-        self._drain_messages()
-        if not self.canvas:
+        stopped = self._drain_messages()
+        if stopped or not self.running or not self.root or not self.canvas:
             return
 
-        self.canvas.delete("all")
-        now = time.time()
-        self.anim_phase += 0.12
+        should_be_visible = (
+            self.laser_enabled
+            or self.drawing_enabled
+            or bool(self._strokes)
+            or bool(self._current_stroke)
+        )
 
-        # 1. Render Strokes with Fade-Out Decay
-        surviving_strokes = []
-        for stroke in self._strokes:
-            if not stroke:
-                continue
-            # Check age of newest point in stroke
-            age = now - stroke[-1].timestamp
-            if age < self.fade_duration:
-                surviving_strokes.append(stroke)
-                # Draw lines between consecutive points
-                pts = [(p.x, p.y) for p in stroke]
-                if len(pts) >= 2:
-                    flat_coords = [coord for pt in pts for coord in pt]
-                    self.canvas.create_line(
-                        *flat_coords,
-                        fill=stroke[0].color,
-                        width=stroke[0].width,
-                        capstyle=tk.ROUND,
-                        joinstyle=tk.ROUND,
-                        smooth=True
-                    )
-        self._strokes = surviving_strokes
+        if should_be_visible:
+            if not self._is_visible:
+                try:
+                    self.root.deiconify()
+                    top_hwnd = self._get_toplevel_hwnd()
+                    if top_hwnd:
+                        self._enable_click_through(top_hwnd)
+                    self._is_visible = True
+                except Exception:
+                    pass
 
-        # Render current active stroke in progress
-        if len(self._current_stroke) >= 2:
-            pts = [(p.x, p.y) for p in self._current_stroke]
-            flat_coords = [coord for pt in pts for coord in pt]
-            self.canvas.create_line(
-                *flat_coords,
-                fill=self.current_color,
-                width=self.brush_width,
-                capstyle=tk.ROUND,
-                joinstyle=tk.ROUND,
-                smooth=True
-            )
+            self.canvas.delete("all")
+            now = time.time()
+            self.anim_phase += 0.12
 
-        # 2. Render Presentation Laser Pointer if enabled
-        if self.laser_enabled and self.laser_pos:
-            lx, ly = self.laser_pos
-            pulse = math.sin(self.anim_phase) * 2.0
-            r_outer = 10 + pulse
-            r_inner = 4
+            # 1. Render Strokes with Fade-Out Decay
+            surviving_strokes = []
+            for stroke in self._strokes:
+                if not stroke:
+                    continue
+                # Check age of newest point in stroke
+                age = now - stroke[-1].timestamp
+                if age < self.fade_duration:
+                    surviving_strokes.append(stroke)
+                    # Draw lines between consecutive points
+                    pts = [(p.x, p.y) for p in stroke]
+                    if len(pts) >= 2:
+                        flat_coords = [coord for pt in pts for coord in pt]
+                        self.canvas.create_line(
+                            *flat_coords,
+                            fill=stroke[0].color,
+                            width=stroke[0].width,
+                            capstyle=tk.ROUND,
+                            joinstyle=tk.ROUND,
+                            smooth=True
+                        )
+            self._strokes = surviving_strokes
 
-            # Outer glowing halo
-            self.canvas.create_oval(
-                lx - r_outer, ly - r_outer, lx + r_outer, ly + r_outer,
-                fill="#ff0055", outline="#ff88aa", width=1
-            )
-            # Center bright white core
-            self.canvas.create_oval(
-                lx - r_inner, ly - r_inner, lx + r_inner, ly + r_inner,
-                fill="#ffffff", outline=""
-            )
+            # Render current active stroke in progress
+            if len(self._current_stroke) >= 2:
+                pts = [(p.x, p.y) for p in self._current_stroke]
+                flat_coords = [coord for pt in pts for coord in pt]
+                self.canvas.create_line(
+                    *flat_coords,
+                    fill=self.current_color,
+                    width=self.brush_width,
+                    capstyle=tk.ROUND,
+                    joinstyle=tk.ROUND,
+                    smooth=True
+                )
 
-        self.root.after(16, self._render_loop)
+            # 2. Render Presentation Laser Pointer if enabled
+            if self.laser_enabled and self.laser_pos:
+                lx, ly = self.laser_pos
+                pulse = math.sin(self.anim_phase) * 2.0
+                r_outer = 10 + pulse
+                r_inner = 4
+
+                # Outer glowing halo
+                self.canvas.create_oval(
+                    lx - r_outer, ly - r_outer, lx + r_outer, ly + r_outer,
+                    fill="#ff0055", outline="#ff88aa", width=1
+                )
+                # Center bright white core
+                self.canvas.create_oval(
+                    lx - r_inner, ly - r_inner, lx + r_inner, ly + r_inner,
+                    fill="#ffffff", outline=""
+                )
+
+            if self.root:
+                self.root.after(16, self._render_loop)
+        else:
+            if self._is_visible:
+                try:
+                    self.canvas.delete("all")
+                    self.root.withdraw()
+                    self._is_visible = False
+                except Exception:
+                    pass
+            if self.root:
+                self.root.after(33, self._render_loop)

@@ -84,7 +84,15 @@ class FloatingOrbOverlay:
         self.canvas.bind("<B1-Motion>", on_drag)
 
         self._animate_loop()
-        self.root.mainloop()
+        try:
+            self.root.mainloop()
+        finally:
+            try:
+                if self.root:
+                    self.root.destroy()
+            except Exception:
+                pass
+            self.root = None
 
     def set_state(self, is_tracking: bool, action: Optional[str] = None):
         """Thread-safe update of current tracking and gesture state."""
@@ -95,11 +103,17 @@ class FloatingOrbOverlay:
 
     def _animate_loop(self):
         if not self.running or not self.root:
+            if self.root:
+                try:
+                    self.root.quit()
+                except Exception:
+                    pass
             return
 
         self.phase += 0.08
         self._draw_orb()
-        self.root.after(30, self._animate_loop)
+        if self.root and self.running:
+            self.root.after(30, self._animate_loop)
 
     def _draw_orb(self):
         self.canvas.delete("all")
@@ -177,9 +191,9 @@ class FloatingOrbOverlay:
     def stop(self):
         """Closes and destroys the orb overlay."""
         self.running = False
-        if self.root:
+        if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
             try:
-                self.root.after(0, self._cleanup_root)
+                self._thread.join(timeout=0.6)
             except Exception:
                 pass
 

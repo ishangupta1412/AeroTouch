@@ -43,6 +43,8 @@ VOICE_INTENTS: Dict[str, str] = {
     "resume": "VOICE_RESUME",
     "game mode": "VOICE_TOGGLE_GAME_MODE",
     "gaming": "VOICE_TOGGLE_GAME_MODE",
+    "subway surfers": "VOICE_SELECT_SUBWAY_SURFERS",
+    "subway surfer": "VOICE_SELECT_SUBWAY_SURFERS",
 }
 
 

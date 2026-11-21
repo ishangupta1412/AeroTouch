@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from src.gestures.engine import HandLandmarks
 from .base_profile import BaseGameProfile
 from .trigger import FistBumpTrigger
+from .profiles.subway_surfers import SubwaySurfersProfile
 
 logger = logging.getLogger("AeroTouch.GameEngine")
 
@@ -60,10 +61,12 @@ class GameEngine:
         self._profiles: Dict[str, BaseGameProfile] = {}
         self.active_profile_id: Optional[str] = None
 
-        # Register default fallback profile
+        # Register default arcade and flagship Subway Surfers profiles
         default_profile = DefaultArcadeProfile()
+        subway_profile = SubwaySurfersProfile()
         self.register_profile(default_profile)
-        self.active_profile_id = default_profile.game_id
+        self.register_profile(subway_profile)
+        self.active_profile_id = subway_profile.game_id
 
     def register_profile(self, profile: BaseGameProfile) -> None:
         """Registers a new game profile into the engine."""

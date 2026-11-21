@@ -221,6 +221,12 @@ class SpatialOrchestrator:
             is_gaming = self.game_engine.toggle(self.kernel)
             action = "GAME_MODE_ENABLED" if is_gaming else "GAME_MODE_DISABLED"
             play_chime_async(is_lock=not is_gaming)
+        elif intent == "VOICE_SELECT_SUBWAY_SURFERS":
+            self.game_engine.set_active_profile("subway_surfers", self.kernel)
+            if not self.game_engine.is_active:
+                self.game_engine.toggle(self.kernel)
+            action = "GAME_SUBWAY_SURFERS_ACTIVE"
+            play_chime_async(is_lock=False)
 
         return action
 

@@ -9,5 +9,6 @@ Provides a completely isolated spatial gaming execution layer:
 from .engine import GameEngine
 from .base_profile import BaseGameProfile
 from .trigger import FistBumpTrigger
+from .profiles.subway_surfers import SubwaySurfersProfile
 
-__all__ = ["GameEngine", "BaseGameProfile", "FistBumpTrigger"]
+__all__ = ["GameEngine", "BaseGameProfile", "FistBumpTrigger", "SubwaySurfersProfile"]

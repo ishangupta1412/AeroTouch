@@ -154,14 +154,14 @@ class TestGameEngine(unittest.TestCase):
 
     def test_default_initialization(self):
         self.assertFalse(self.engine.is_active)
-        self.assertEqual(self.engine.active_profile_id, "default_arcade")
+        self.assertEqual(self.engine.active_profile_id, "subway_surfers")
         profiles = self.engine.list_profiles()
-        self.assertEqual(len(profiles), 1)
+        self.assertEqual(len(profiles), 2)
 
     def test_register_and_switch_profile(self):
         custom = MockCustomGame()
         self.engine.register_profile(custom)
-        self.assertEqual(len(self.engine.list_profiles()), 2)
+        self.assertEqual(len(self.engine.list_profiles()), 3)
 
         switched = self.engine.set_active_profile("mock_speed_racer")
         self.assertTrue(switched)

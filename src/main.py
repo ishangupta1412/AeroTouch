@@ -183,13 +183,15 @@ def run_aerotouch(
     print("  * Left Hand Fist + Right Pinch: Snap Active Window Left")
     print("  * Left Hand 3-Fingers + Right Pinch: Switch Virtual Desktop")
     print("  * 🤙 Shaka (Thumb + Pinky): Hold 0.6s to Pause / Resume AeroTouch")
+    print("  * 🤜🤛 Fist Bump: Hold 0.35s to Toggle Game Mode (Subway Surfers, etc.)")
+    print("    - Subway Surfers: Swipe Up (Jump), Down (Roll), Left/Right (Dodge), Pinch (Hoverboard)")
     print("  * 3-Finger Swipe Up / Down: Task View (Win+Tab) / Show Desktop (Win+D)")
     print("  * 3-Finger Swipe Left / Right: Switch Virtual Desktops (Win+Ctrl+Left/Right)")
     print("  * Two-Hand Pinch & Move: Smooth Spatial Zoom (Figma, Maps, CAD, Web)")
     print("  * Press 'l': Toggle Presentation Laser Pointer (Red Reticle)")
     print("  * Press 'c': Toggle In-Air Drawing Mode (Neon Fading Ink)")
     print("  * Press 'x': Clear All AirCanvas Annotations")
-    print("  * Voice Commands: 'copy', 'paste', 'close', 'maximize', 'screenshot', 'laser', 'draw', 'clear', 'pause'")
+    print("  * Voice Commands: 'copy', 'paste', 'close', 'maximize', 'screenshot', 'laser', 'draw', 'clear', 'pause', 'game mode', 'subway surfers'")
     print("  * Press 'r': Toggle Live Gesture Stream Recording (Dataset Generator)\n")
 
     frame_count = 0

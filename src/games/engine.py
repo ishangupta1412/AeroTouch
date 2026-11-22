@@ -59,8 +59,8 @@ class GameEngine:
         self.is_active: bool = False
         self.trigger: FistBumpTrigger = FistBumpTrigger(
             bump_distance_threshold=0.24,
-            dwell_duration=0.55,
-            cooldown=1.5
+            dwell_duration=0.85,
+            cooldown=1.8
         )
         self._profiles: Dict[str, BaseGameProfile] = {}
         self.active_profile_id: Optional[str] = None

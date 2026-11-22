@@ -207,7 +207,7 @@ class TestSpatialOrchestratorGameIntegration(unittest.TestCase):
         # Bump fists to trigger game mode
         with patch("src.core.orchestrator.play_chime_async"):
             orch.process_spatial_frame(r_fist, l_fist, timestamp=1.0)
-            res = orch.process_spatial_frame(r_fist, l_fist, timestamp=1.60)
+            res = orch.process_spatial_frame(r_fist, l_fist, timestamp=1.90)
 
         self.assertEqual(res["system_state"], "GAME_MODE")
         self.assertTrue(orch.game_engine.is_active)

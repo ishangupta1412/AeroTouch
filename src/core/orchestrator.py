@@ -21,6 +21,11 @@ from src.os_bridge.volume_control import MediaScalarController
 from src.os_bridge.audio_feedback import play_chime_async
 from src.gestures.few_shot_engine import FewShotGestureEngine
 from src.games.engine import GameEngine
+from src.core.engagement import EngagementGatingEngine, TrackingParadigm
+from src.core.predictive_filter import PredictiveKinematicFilter
+from src.service.audio_haptics import AudioHapticsEngine, HapticCue
+from src.os_bridge.ui_magnetism import UIMagnetismEngine
+from src.core.app_presets import AppPresetEngine
 
 
 class SpatialOrchestrator:
@@ -73,14 +78,24 @@ class SpatialOrchestrator:
         self.shaka_required_frames: int = int(profile.get("shaka_frames", 35))
         self.lock_cooldown: float = 1.2
 
+        # Peak Spatial Computing Engines
+        self.engagement_engine = EngagementGatingEngine()
+        self.predictive_filter = PredictiveKinematicFilter()
+        self.haptics = AudioHapticsEngine()
+        self.magnetism = UIMagnetismEngine()
+        self.app_presets = AppPresetEngine()
+        self._last_locked_ui_target: Optional[str] = None
+
     def recalibrate(self) -> None:
         """Resets all spatial filters, pointer ballistics, and dragging states."""
         self.filter.reset()
+        self.predictive_filter.reset()
         self.ballistics.reset()
         self.scroll_ctrl.reset()
         self.swipe_detector.reset()
         self.zoom_ctrl.reset()
         self.dragger.reset()
+        self.magnetism.clear_targets()
         self.custom_gesture_streak = 0
 
     def apply_context_profile(self, recommendations: Dict[str, any]) -> None:
@@ -354,15 +369,29 @@ class SpatialOrchestrator:
             norm_x = action_state["cursor_x"]
             norm_y = action_state["cursor_y"]
 
+            # Predictive Latency Forward Extrapolation & Deadband
+            pred_x, pred_y = self.predictive_filter.filter_and_predict(norm_x, norm_y, timestamp=timestamp)
+
             # Filter with Deadband Noise Gate — eliminates micro-vibrations completely
-            smooth_x, smooth_y = self.filter.filter(norm_x, norm_y, timestamp=timestamp)
+            smooth_x, smooth_y = self.filter.filter(pred_x, pred_y, timestamp=timestamp)
 
             # Apply Dynamic Pointer Ballistics (Sniper Precision Mode & Flick Acceleration)
             accel_x, accel_y = self.ballistics.apply(smooth_x, smooth_y, timestamp=timestamp)
 
             # Map to physical screen resolution
             screen_x, screen_y = self.mapper.map_to_screen(accel_x, accel_y)
+
+            # Sub-Pixel UI Magnetism (Apple visionOS gravitational attraction)
+            screen_x, screen_y, locked_target = self.magnetism.apply_magnetism(
+                screen_x, screen_y, cursor_speed=self.ballistics.current_speed
+            )
+            if locked_target and locked_target != self._last_locked_ui_target:
+                self.haptics.trigger(HapticCue.SNAP_PING)
+            self._last_locked_ui_target = locked_target
+
             result_summary["cursor_pos"] = (screen_x, screen_y)
+            result_summary["magnetic_lock"] = locked_target
+            result_summary["app_preset"] = self.app_presets.get_active_preset().name
 
             # Two-Finger Kinetic Scroll with Momentum Decay
             is_scroll = action_state.get("is_scroll", False)
@@ -372,10 +401,12 @@ class SpatialOrchestrator:
             if is_scroll:
                 if scroll_steps != 0:
                     self.kernel.scroll(scroll_steps)
+                    self.haptics.trigger(HapticCue.SCROLL_RATCHET)
                     result_summary["action_executed"] = f"TWO_FINGER_SCROLL_{scroll_steps}"
             else:
                 if scroll_steps != 0:
                     self.kernel.scroll(scroll_steps)
+                    self.haptics.trigger(HapticCue.SCROLL_RATCHET)
                     result_summary["action_executed"] = f"KINETIC_SCROLL_{scroll_steps}"
 
                 # Only move cursor when not actively two-finger scrolling
@@ -434,6 +465,7 @@ class SpatialOrchestrator:
 
             # Handle Actions & Left-Hand Compound Modifiers
             if action_state["click_event"] == "LEFT_CLICK":
+                self.haptics.trigger(HapticCue.MECHANICAL_CLICK)
                 if left_mode == HandMode.WINDOW_SNAP:
                     if timestamp - self.last_snap_time > 0.5:
                         direction = GestureMath.get_snap_direction(right_hand)
@@ -458,6 +490,7 @@ class SpatialOrchestrator:
                     result_summary["action_executed"] = "MOUSE_LEFT_CLICK"
 
             elif action_state["right_click_event"] == "RIGHT_CLICK":
+                self.haptics.trigger(HapticCue.MECHANICAL_CLICK)
                 self.kernel.click(left=False)
                 result_summary["action_executed"] = "MOUSE_RIGHT_CLICK"
 

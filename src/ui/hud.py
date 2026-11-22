@@ -239,6 +239,14 @@ class SpatialHUD:
             if left_hand:
                 status_text += f" | Left: {result.get('mode', 'IDLE')}"
 
+            app_preset = result.get("app_preset")
+            if app_preset and app_preset != "Desktop OS":
+                status_text += f" | App: {app_preset}"
+
+            mag_lock = result.get("magnetic_lock")
+            if mag_lock:
+                status_text += f" | [SNAP: {mag_lock}]"
+
             action_exec = result.get("action_executed")
             if action_exec:
                 status_text += f" | Event: {action_exec}"

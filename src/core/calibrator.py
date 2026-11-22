@@ -39,6 +39,7 @@ class PointerBallistics:
         # Kept separate from raw hand coords so delta math never feeds on its own output
         self.cursor_x: float = 0.5
         self.cursor_y: float = 0.5
+        self.last_speed: float = 0.0
 
     def apply(
         self,
@@ -76,6 +77,7 @@ class PointerBallistics:
         dy = current_y - self.last_raw_y
         dist = math.hypot(dx, dy)
         vel = dist / dt  # normalized units per second
+        self.last_speed = vel
 
         # Compute dynamic multiplier
         v_low = self.precision_threshold * 60.0
@@ -119,6 +121,12 @@ class PointerBallistics:
         self.last_time = None
         self.cursor_x = 0.5
         self.cursor_y = 0.5
+        self.last_speed = 0.0
+
+    @property
+    def current_speed(self) -> float:
+        """Returns the instantaneous velocity magnitude in normalized units/sec."""
+        return self.last_speed
 
     # ── Legacy test-compatibility properties ──────────────────────────────────
     @property

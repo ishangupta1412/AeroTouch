@@ -60,8 +60,9 @@ class TestSubwaySurfersProfile(unittest.TestCase):
         h2 = make_hand_at(0.5, 0.52)
         res2 = self.profile.process_frame(h2, None, self.mock_kernel, timestamp=1.05)
 
-        self.assertIn("JUMP (VK_UP)", res2["actions"])
-        self.mock_kernel.tap_key.assert_called_with(VirtualKey.VK_UP)
+        self.assertTrue(any("JUMP" in a for a in res2["actions"]))
+        self.mock_kernel.tap_key.assert_any_call(VirtualKey.VK_UP)
+        self.mock_kernel.tap_key.assert_any_call(ord('W'))
 
     def test_roll_swipe(self):
         # Frame 1: baseline (t=2.0)
@@ -72,8 +73,9 @@ class TestSubwaySurfersProfile(unittest.TestCase):
         h2 = make_hand_at(0.5, 0.48)
         res = self.profile.process_frame(h2, None, self.mock_kernel, timestamp=2.05)
 
-        self.assertIn("ROLL (VK_DOWN)", res["actions"])
-        self.mock_kernel.tap_key.assert_called_with(VirtualKey.VK_DOWN)
+        self.assertTrue(any("ROLL" in a for a in res["actions"]))
+        self.mock_kernel.tap_key.assert_any_call(VirtualKey.VK_DOWN)
+        self.mock_kernel.tap_key.assert_any_call(ord('S'))
 
     def test_left_dodge_swipe(self):
         # Frame 1: baseline (t=3.0)
@@ -84,8 +86,9 @@ class TestSubwaySurfersProfile(unittest.TestCase):
         h2 = make_hand_at(0.51, 0.5)
         res = self.profile.process_frame(h2, None, self.mock_kernel, timestamp=3.05)
 
-        self.assertIn("DODGE_LEFT (VK_LEFT)", res["actions"])
-        self.mock_kernel.tap_key.assert_called_with(VirtualKey.VK_LEFT)
+        self.assertTrue(any("DODGE_LEFT" in a for a in res["actions"]))
+        self.mock_kernel.tap_key.assert_any_call(VirtualKey.VK_LEFT)
+        self.mock_kernel.tap_key.assert_any_call(ord('A'))
 
     def test_right_dodge_swipe(self):
         # Frame 1: baseline (t=4.0)
@@ -96,8 +99,9 @@ class TestSubwaySurfersProfile(unittest.TestCase):
         h2 = make_hand_at(0.49, 0.5)
         res = self.profile.process_frame(h2, None, self.mock_kernel, timestamp=4.05)
 
-        self.assertIn("DODGE_RIGHT (VK_RIGHT)", res["actions"])
-        self.mock_kernel.tap_key.assert_called_with(VirtualKey.VK_RIGHT)
+        self.assertTrue(any("DODGE_RIGHT" in a for a in res["actions"]))
+        self.mock_kernel.tap_key.assert_any_call(VirtualKey.VK_RIGHT)
+        self.mock_kernel.tap_key.assert_any_call(ord('D'))
 
     def test_hoverboard_activation(self):
         # Hand with thumb and index pinched together
@@ -123,7 +127,7 @@ class TestSubwaySurfersProfile(unittest.TestCase):
         # Swipe 1 at t=7.05 -> fires
         h2 = make_hand_at(0.5, 0.52)
         res1 = self.profile.process_frame(h2, None, self.mock_kernel, timestamp=7.05)
-        self.assertIn("JUMP (VK_UP)", res1["actions"])
+        self.assertTrue(any("JUMP" in a for a in res1["actions"]))
 
         # Immediate follow-up frame at t=7.10 (< 0.15s cooldown) -> suppressed
         h3 = make_hand_at(0.5, 0.44)

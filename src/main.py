@@ -191,6 +191,7 @@ def run_aerotouch(
     print("  * Press 'l': Toggle Presentation Laser Pointer (Red Reticle)")
     print("  * Press 'c': Toggle In-Air Drawing Mode (Neon Fading Ink)")
     print("  * Press 'x': Clear All AirCanvas Annotations")
+    print("  * Press 'g': Instant Toggle Game Mode (Subway Surfers, etc.)")
     print("  * Voice Commands: 'copy', 'paste', 'close', 'maximize', 'screenshot', 'laser', 'draw', 'clear', 'pause', 'game mode', 'subway surfers'")
     print("  * Press 'r': Toggle Live Gesture Stream Recording (Dataset Generator)\n")
 
@@ -257,6 +258,15 @@ def run_aerotouch(
                     print(f"[{ts}] >>> WINDOW SNAP LEFT <<<")
                 elif "DESKTOP" in action:
                     print(f"[{ts}] >>> NEXT VIRTUAL DESKTOP <<<")
+                elif "GAME_MODE" in action or "GAME" in action:
+                    print(f"[{ts}] 🎮 >>> {action} <<<")
+
+            # Real-time Game Mode action logging
+            game_data = result.get("game_data")
+            if game_data and game_data.get("actions"):
+                ts = time.strftime('%H:%M:%S')
+                for g_act in game_data["actions"]:
+                    print(f"[{ts}] 🎮 Subway Surfers: >>> {g_act} <<<")
 
             # Update Dynamic Island & Ambient Floating Orb
             if island:
@@ -303,6 +313,10 @@ def run_aerotouch(
                     if air_canvas:
                         air_canvas.clear()
                         print("\n[AeroTouch Studio]: AirCanvas Cleared.")
+                elif key == ord('g'):
+                    is_gaming = orchestrator.game_engine.toggle(orchestrator.kernel)
+                    st = "ACTIVE 🎮" if is_gaming else "OFF"
+                    print(f"\n[AeroTouch Gaming]: Game Mode {st} (Profile: {orchestrator.game_engine.active_profile_id})")
 
                 # Check if preview window was closed via 'X' button
                 try:

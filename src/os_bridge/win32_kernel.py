@@ -7,6 +7,8 @@ across 64-bit Windows without struct alignment discrepancies.
 
 import ctypes
 from enum import IntEnum
+import threading
+import time
 from typing import Tuple
 
 
@@ -47,6 +49,18 @@ class VirtualKey(IntEnum):
     VK_LWIN = 0x5B  # Windows key
     VK_D = 0x44
     VK_F4 = 0x73
+
+
+EXTENDED_KEYS = {
+    int(VirtualKey.VK_UP),
+    int(VirtualKey.VK_DOWN),
+    int(VirtualKey.VK_LEFT),
+    int(VirtualKey.VK_RIGHT),
+    int(VirtualKey.VK_LWIN),
+    int(VirtualKey.VK_RETURN),
+    int(VirtualKey.VK_ESCAPE),
+    int(VirtualKey.VK_SPACE),
+}
 
 
 class Win32KernelBridge:
@@ -99,14 +113,32 @@ class Win32KernelBridge:
         self.key_up(VirtualKey.VK_CONTROL)
 
     def key_down(self, vk_code: int) -> None:
-        self.user32.keybd_event(int(vk_code), 0, KEYEVENTF_KEYDOWN, 0)
+        vk = int(vk_code)
+        scan = self.user32.MapVirtualKeyW(vk, 0)
+        flags = KEYEVENTF_KEYDOWN
+        if vk in EXTENDED_KEYS:
+            flags |= KEYEVENTF_EXTENDEDKEY
+        self.user32.keybd_event(vk, scan, flags, 0)
 
     def key_up(self, vk_code: int) -> None:
-        self.user32.keybd_event(int(vk_code), 0, KEYEVENTF_KEYUP, 0)
+        vk = int(vk_code)
+        scan = self.user32.MapVirtualKeyW(vk, 0)
+        flags = KEYEVENTF_KEYUP
+        if vk in EXTENDED_KEYS:
+            flags |= KEYEVENTF_EXTENDEDKEY
+        self.user32.keybd_event(vk, scan, flags, 0)
 
-    def tap_key(self, vk_code: int) -> None:
-        self.key_down(vk_code)
-        self.key_up(vk_code)
+    def tap_key(self, vk_code: int, hold_seconds: float = 0.04) -> None:
+        """Taps a key with scan-code awareness and hold duration for game compatibility."""
+        if hold_seconds <= 0:
+            self.key_down(vk_code)
+            self.key_up(vk_code)
+        else:
+            def _tap():
+                self.key_down(vk_code)
+                time.sleep(hold_seconds)
+                self.key_up(vk_code)
+            threading.Thread(target=_tap, daemon=True).start()
 
     def hotkey(self, *vk_codes: int) -> None:
         """Chords multiple keys sequentially and releases in reverse order."""

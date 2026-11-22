@@ -221,6 +221,12 @@ class SpatialHUD:
         if system_state == "LOCKED":
             status_text = f"AeroTouch Studio | {fps:.1f} FPS | [SYSTEM PAUSED - Show 🤙 to Resume]"
             header_color = (80, 80, 240) # Crimson warning
+        elif system_state == "GAME_MODE":
+            game_data = result.get("game_data", {})
+            last_act = game_data.get("last_action", "")
+            act_str = f" | Action: {last_act}" if last_act else ""
+            status_text = f"AeroTouch Studio | {fps:.1f} FPS | [GAME MODE: Subway Surfers - Swipe to Play!]{act_str}"
+            header_color = (0, 240, 120)  # Neon Emerald Gaming
         else:
             status_text = f"AeroTouch Studio | {fps:.1f} FPS"
             if right_hand:
@@ -255,6 +261,20 @@ class SpatialHUD:
             toggle_msg = "HOLD 🤙 TO PAUSE" if system_state == "ACTIVE" else "HOLD 🤙 TO RESUME"
             cv2.putText(frame, f"{toggle_msg} ({int(lock_progress * 100)}%)",
                         (bx + 20, by + 12), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # Game Mode Visual Swipe Action Badge
+        if system_state == "GAME_MODE":
+            game_data = result.get("game_data", {})
+            last_act = game_data.get("last_action")
+            if last_act:
+                badge_w, badge_h = 280, 48
+                cx = (w - badge_w) // 2
+                cy = h - 70
+                # Dark backing rectangle
+                cv2.rectangle(frame, (cx, cy), (cx + badge_w, cy + badge_h), (20, 20, 20), -1)
+                cv2.rectangle(frame, (cx, cy), (cx + badge_w, cy + badge_h), (0, 240, 120), 2)
+                cv2.putText(frame, f">> {last_act} <<", (cx + 25, cy + 32),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 240, 120), 2, cv2.LINE_AA)
 
         # 3. Recording Indicator
         if self.recorder.is_recording:

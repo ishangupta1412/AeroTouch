@@ -21,9 +21,9 @@ class FistBumpTrigger:
 
     def __init__(
         self,
-        bump_distance_threshold: float = 0.16,
-        dwell_duration: float = 0.35,
-        cooldown: float = 1.5,
+        bump_distance_threshold: float = 0.24,
+        dwell_duration: float = 0.25,
+        cooldown: float = 1.2,
     ):
         self.bump_distance_threshold = bump_distance_threshold
         self.dwell_duration = dwell_duration
@@ -67,14 +67,18 @@ class FistBumpTrigger:
             self.progress = 0.0
             return False, 0.0
 
-        # Calculate knuckle Euclidean distance (MCP 5 index knuckle & MCP 9 middle knuckle)
-        r_knuckle = right_hand.points[5]
-        l_knuckle = left_hand.points[5]
-
-        dx = r_knuckle[0] - l_knuckle[0]
-        dy = r_knuckle[1] - l_knuckle[1]
-        dz = r_knuckle[2] - l_knuckle[2]
-        dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+        # Calculate closest distance between knuckles (Index MCP 5, Middle MCP 9, or Wrist 0)
+        min_dist = float("inf")
+        for idx in (5, 9, 0):
+            r_pt = right_hand.points[idx]
+            l_pt = left_hand.points[idx]
+            dx = r_pt[0] - l_pt[0]
+            dy = r_pt[1] - l_pt[1]
+            dz = r_pt[2] - l_pt[2]
+            d = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if d < min_dist:
+                min_dist = d
+        dist = min_dist
 
         # Check proximity
         if dist <= self.bump_distance_threshold:

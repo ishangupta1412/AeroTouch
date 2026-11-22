@@ -24,9 +24,9 @@ class SubwaySurfersProfile(BaseGameProfile):
 
     def __init__(
         self,
-        velocity_threshold: float = 0.40,
-        min_displacement: float = 0.035,
-        swipe_cooldown: float = 0.16,
+        velocity_threshold: float = 0.28,
+        min_displacement: float = 0.025,
+        swipe_cooldown: float = 0.14,
         hoverboard_cooldown: float = 0.80,
     ):
         super().__init__(
@@ -162,19 +162,23 @@ class SubwaySurfersProfile(BaseGameProfile):
                 if swipe == "JUMP":
                     if kernel:
                         kernel.tap_key(VirtualKey.VK_UP)
-                    executed_actions.append("JUMP (VK_UP)")
+                        kernel.tap_key(ord('W'))
+                    executed_actions.append("JUMP (VK_UP / W)")
                 elif swipe == "ROLL":
                     if kernel:
                         kernel.tap_key(VirtualKey.VK_DOWN)
-                    executed_actions.append("ROLL (VK_DOWN)")
+                        kernel.tap_key(ord('S'))
+                    executed_actions.append("ROLL (VK_DOWN / S)")
                 elif swipe == "MOVE_LEFT":
                     if kernel:
                         kernel.tap_key(VirtualKey.VK_LEFT)
-                    executed_actions.append("DODGE_LEFT (VK_LEFT)")
+                        kernel.tap_key(ord('A'))
+                    executed_actions.append("DODGE_LEFT (VK_LEFT / A)")
                 elif swipe == "MOVE_RIGHT":
                     if kernel:
                         kernel.tap_key(VirtualKey.VK_RIGHT)
-                    executed_actions.append("DODGE_RIGHT (VK_RIGHT)")
+                        kernel.tap_key(ord('D'))
+                    executed_actions.append("DODGE_RIGHT (VK_RIGHT / D)")
 
                 self.last_action = swipe
                 self.last_action_time = timestamp
@@ -192,7 +196,7 @@ class SubwaySurfersProfile(BaseGameProfile):
                     t_pt = hand.points[4]
                     i_pt = hand.points[8]
                     pinch_dist = math.dist(t_pt, i_pt)
-                    if pinch_dist < 0.05:  # Close pinch
+                    if pinch_dist < 0.07:  # Close pinch
                         hoverboard_triggered = True
                         break
 

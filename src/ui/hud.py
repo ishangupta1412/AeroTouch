@@ -224,8 +224,10 @@ class SpatialHUD:
         elif system_state == "GAME_MODE":
             game_data = result.get("game_data", {})
             last_act = game_data.get("last_action", "")
+            game_id = game_data.get("game_id", "gaming")
+            clean_name = game_id.replace("_", " ").title()
             act_str = f" | Action: {last_act}" if last_act else ""
-            status_text = f"AeroTouch Studio | {fps:.1f} FPS | [GAME MODE: Subway Surfers - Swipe to Play!]{act_str}"
+            status_text = f"AeroTouch Studio | {fps:.1f} FPS | [GAME MODE: {clean_name}]{act_str}"
             header_color = (0, 240, 120)  # Neon Emerald Gaming
         else:
             status_text = f"AeroTouch Studio | {fps:.1f} FPS"

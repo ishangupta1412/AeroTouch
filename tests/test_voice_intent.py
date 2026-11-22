@@ -163,8 +163,22 @@ class TestParseCommand(unittest.TestCase):
             "VOICE_CLEAR_CANVAS", "VOICE_PAUSE", "VOICE_RESUME",
             "VOICE_TOGGLE_GAME_MODE",
             "VOICE_SELECT_SUBWAY_SURFERS",
+            "VOICE_SELECT_RACING",
+            "VOICE_SELECT_TEMPLE_RUN",
+            "VOICE_SELECT_MINECRAFT",
+            "VOICE_SELECT_FRUIT_NINJA",
+            "VOICE_SELECT_FLAPPY_BIRD",
+            "VOICE_NEXT_GAME",
         }
         self.assertEqual(set(VOICE_INTENTS.values()), expected_canonical)
+
+    def test_parse_new_game_intents(self):
+        self.assertEqual(self.svc.parse_command("let's play racing"), "VOICE_SELECT_RACING")
+        self.assertEqual(self.svc.parse_command("temple run"), "VOICE_SELECT_TEMPLE_RUN")
+        self.assertEqual(self.svc.parse_command("launch minecraft"), "VOICE_SELECT_MINECRAFT")
+        self.assertEqual(self.svc.parse_command("fruit ninja"), "VOICE_SELECT_FRUIT_NINJA")
+        self.assertEqual(self.svc.parse_command("flappy bird"), "VOICE_SELECT_FLAPPY_BIRD")
+        self.assertEqual(self.svc.parse_command("next game"), "VOICE_NEXT_GAME")
 
 
 # ===========================================================================

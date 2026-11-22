@@ -227,6 +227,42 @@ class SpatialOrchestrator:
                 self.game_engine.toggle(self.kernel)
             action = "GAME_SUBWAY_SURFERS_ACTIVE"
             play_chime_async(is_lock=False)
+        elif intent == "VOICE_SELECT_RACING":
+            self.game_engine.set_active_profile("racing", self.kernel)
+            if not self.game_engine.is_active:
+                self.game_engine.toggle(self.kernel)
+            action = "GAME_RACING_ACTIVE"
+            play_chime_async(is_lock=False)
+        elif intent == "VOICE_SELECT_TEMPLE_RUN":
+            self.game_engine.set_active_profile("temple_run", self.kernel)
+            if not self.game_engine.is_active:
+                self.game_engine.toggle(self.kernel)
+            action = "GAME_TEMPLE_RUN_ACTIVE"
+            play_chime_async(is_lock=False)
+        elif intent == "VOICE_SELECT_MINECRAFT":
+            self.game_engine.set_active_profile("minecraft", self.kernel)
+            if not self.game_engine.is_active:
+                self.game_engine.toggle(self.kernel)
+            action = "GAME_MINECRAFT_ACTIVE"
+            play_chime_async(is_lock=False)
+        elif intent == "VOICE_SELECT_FRUIT_NINJA":
+            self.game_engine.set_active_profile("fruit_ninja", self.kernel)
+            if not self.game_engine.is_active:
+                self.game_engine.toggle(self.kernel)
+            action = "GAME_FRUIT_NINJA_ACTIVE"
+            play_chime_async(is_lock=False)
+        elif intent == "VOICE_SELECT_FLAPPY_BIRD":
+            self.game_engine.set_active_profile("flappy_bird", self.kernel)
+            if not self.game_engine.is_active:
+                self.game_engine.toggle(self.kernel)
+            action = "GAME_FLAPPY_BIRD_ACTIVE"
+            play_chime_async(is_lock=False)
+        elif intent == "VOICE_NEXT_GAME":
+            next_prof = self.game_engine.cycle_next_profile(self.kernel)
+            if not self.game_engine.is_active:
+                self.game_engine.toggle(self.kernel)
+            action = f"GAME_{next_prof.upper()}_ACTIVE"
+            play_chime_async(is_lock=False)
 
         return action
 

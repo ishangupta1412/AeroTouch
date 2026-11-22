@@ -22,8 +22,8 @@ class FistBumpTrigger:
     def __init__(
         self,
         bump_distance_threshold: float = 0.24,
-        dwell_duration: float = 0.25,
-        cooldown: float = 1.2,
+        dwell_duration: float = 0.55,
+        cooldown: float = 1.5,
     ):
         self.bump_distance_threshold = bump_distance_threshold
         self.dwell_duration = dwell_duration

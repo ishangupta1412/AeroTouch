@@ -45,6 +45,18 @@ VOICE_INTENTS: Dict[str, str] = {
     "gaming": "VOICE_TOGGLE_GAME_MODE",
     "subway surfers": "VOICE_SELECT_SUBWAY_SURFERS",
     "subway surfer": "VOICE_SELECT_SUBWAY_SURFERS",
+    "racing": "VOICE_SELECT_RACING",
+    "hill climb": "VOICE_SELECT_RACING",
+    "car game": "VOICE_SELECT_RACING",
+    "temple run": "VOICE_SELECT_TEMPLE_RUN",
+    "tomb runner": "VOICE_SELECT_TEMPLE_RUN",
+    "minecraft": "VOICE_SELECT_MINECRAFT",
+    "sandbox": "VOICE_SELECT_MINECRAFT",
+    "fruit ninja": "VOICE_SELECT_FRUIT_NINJA",
+    "slice": "VOICE_SELECT_FRUIT_NINJA",
+    "flappy bird": "VOICE_SELECT_FLAPPY_BIRD",
+    "flappy": "VOICE_SELECT_FLAPPY_BIRD",
+    "next game": "VOICE_NEXT_GAME",
 }
 
 

@@ -265,8 +265,9 @@ def run_aerotouch(
             game_data = result.get("game_data")
             if game_data and game_data.get("actions"):
                 ts = time.strftime('%H:%M:%S')
+                g_name = game_data.get("game_id", "GAME").upper()
                 for g_act in game_data["actions"]:
-                    print(f"[{ts}] 🎮 Subway Surfers: >>> {g_act} <<<")
+                    print(f"[{ts}] 🎮 {g_name}: >>> {g_act} <<<")
 
             # Update Dynamic Island & Ambient Floating Orb
             if island:
@@ -317,6 +318,27 @@ def run_aerotouch(
                     is_gaming = orchestrator.game_engine.toggle(orchestrator.kernel)
                     st = "ACTIVE 🎮" if is_gaming else "OFF"
                     print(f"\n[AeroTouch Gaming]: Game Mode {st} (Profile: {orchestrator.game_engine.active_profile_id})")
+                elif key == ord('n'):
+                    next_id = orchestrator.game_engine.cycle_next_profile(orchestrator.kernel)
+                    p_obj = orchestrator.game_engine.get_profile(next_id)
+                    p_name = p_obj.game_name if p_obj else next_id
+                    print(f"\n[AeroTouch Gaming]: Switched to Game Profile -> {p_name} ({next_id})")
+                elif key in (ord('1'), ord('2'), ord('3'), ord('4'), ord('5'), ord('6')):
+                    game_slots = {
+                        ord('1'): "subway_surfers",
+                        ord('2'): "racing",
+                        ord('3'): "temple_run",
+                        ord('4'): "minecraft",
+                        ord('5'): "fruit_ninja",
+                        ord('6'): "flappy_bird",
+                    }
+                    target_id = game_slots[key]
+                    orchestrator.game_engine.set_active_profile(target_id, orchestrator.kernel)
+                    if not orchestrator.game_engine.is_active:
+                        orchestrator.game_engine.toggle(orchestrator.kernel)
+                    p_obj = orchestrator.game_engine.get_profile(target_id)
+                    p_name = p_obj.game_name if p_obj else target_id
+                    print(f"\n[AeroTouch Gaming]: Activated Game Profile -> {p_name} ({target_id})")
 
                 # Check if preview window was closed via 'X' button
                 try:

@@ -156,16 +156,22 @@ class TestGameEngine(unittest.TestCase):
         self.assertFalse(self.engine.is_active)
         self.assertEqual(self.engine.active_profile_id, "subway_surfers")
         profiles = self.engine.list_profiles()
-        self.assertEqual(len(profiles), 2)
+        self.assertEqual(len(profiles), 7)
 
     def test_register_and_switch_profile(self):
         custom = MockCustomGame()
         self.engine.register_profile(custom)
-        self.assertEqual(len(self.engine.list_profiles()), 3)
+        self.assertEqual(len(self.engine.list_profiles()), 8)
 
         switched = self.engine.set_active_profile("mock_speed_racer")
         self.assertTrue(switched)
         self.assertEqual(self.engine.active_profile_id, "mock_speed_racer")
+
+    def test_cycle_next_profile(self):
+        initial = self.engine.active_profile_id
+        next_id = self.engine.cycle_next_profile()
+        self.assertNotEqual(initial, next_id)
+        self.assertEqual(self.engine.active_profile_id, next_id)
 
     def test_toggle_lifecycle(self):
         custom = MockCustomGame()
@@ -201,7 +207,7 @@ class TestSpatialOrchestratorGameIntegration(unittest.TestCase):
         # Bump fists to trigger game mode
         with patch("src.core.orchestrator.play_chime_async"):
             orch.process_spatial_frame(r_fist, l_fist, timestamp=1.0)
-            res = orch.process_spatial_frame(r_fist, l_fist, timestamp=1.40)
+            res = orch.process_spatial_frame(r_fist, l_fist, timestamp=1.60)
 
         self.assertEqual(res["system_state"], "GAME_MODE")
         self.assertTrue(orch.game_engine.is_active)

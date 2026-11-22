@@ -4,6 +4,7 @@ Central orchestrator for Game Mode:
 - Manages Game Mode activation lifecycle
 - Integrates the 🤜🤛 FistBumpTrigger
 - Dispatches spatial tracking frames to the active game profile
+- Supports hot-swapping between games (Subway Surfers, Racing, Temple Run, Minecraft, Fruit Ninja, Flappy Bird)
 """
 
 import logging
@@ -12,14 +13,18 @@ from src.gestures.engine import HandLandmarks
 from .base_profile import BaseGameProfile
 from .trigger import FistBumpTrigger
 from .profiles.subway_surfers import SubwaySurfersProfile
+from .profiles.racing_wheel import RacingWheelProfile
+from .profiles.temple_run import TempleRunProfile
+from .profiles.minecraft import MinecraftProfile
+from .profiles.fruit_ninja import FruitNinjaProfile
+from .profiles.flappy_bird import FlappyBirdProfile
 
 logger = logging.getLogger("AeroTouch.GameEngine")
 
 
 class DefaultArcadeProfile(BaseGameProfile):
     """
-    Default pluggable profile: Virtual arcade steering and action triggers.
-    Left hand tilt/position controls steering/WASD, Right hand pinch/fist controls fire/jump.
+    Default pluggable profile: Universal arcade fallback.
     """
 
     def __init__(self):
@@ -37,7 +42,6 @@ class DefaultArcadeProfile(BaseGameProfile):
         timestamp: float
     ) -> Dict[str, Any]:
         executed = []
-        # Profile-specific mappings will be dispatched here
         return {
             "game_id": self.game_id,
             "actions": executed,
@@ -54,19 +58,28 @@ class GameEngine:
     def __init__(self):
         self.is_active: bool = False
         self.trigger: FistBumpTrigger = FistBumpTrigger(
-            bump_distance_threshold=0.16,
-            dwell_duration=0.35,
+            bump_distance_threshold=0.24,
+            dwell_duration=0.55,
             cooldown=1.5
         )
         self._profiles: Dict[str, BaseGameProfile] = {}
         self.active_profile_id: Optional[str] = None
 
-        # Register default arcade and flagship Subway Surfers profiles
-        default_profile = DefaultArcadeProfile()
-        subway_profile = SubwaySurfersProfile()
-        self.register_profile(default_profile)
-        self.register_profile(subway_profile)
-        self.active_profile_id = subway_profile.game_id
+        # Register suite of game profiles
+        profiles_to_register = [
+            SubwaySurfersProfile(),
+            RacingWheelProfile(),
+            TempleRunProfile(),
+            MinecraftProfile(),
+            FruitNinjaProfile(),
+            FlappyBirdProfile(),
+            DefaultArcadeProfile(),
+        ]
+        for prof in profiles_to_register:
+            self.register_profile(prof)
+
+        # Default active profile
+        self.active_profile_id = "subway_surfers"
 
     def register_profile(self, profile: BaseGameProfile) -> None:
         """Registers a new game profile into the engine."""
@@ -96,7 +109,23 @@ class GameEngine:
         self.active_profile_id = game_id
         if self.is_active:
             self._profiles[game_id].on_enter(kernel)
+        logger.info(f"[GameEngine]: Switched active profile to '{game_id}'")
         return True
+
+    def cycle_next_profile(self, kernel=None) -> str:
+        """Cycles to the next registered game profile in order."""
+        profile_keys = list(self._profiles.keys())
+        if not profile_keys:
+            return ""
+
+        if self.active_profile_id in profile_keys:
+            idx = (profile_keys.index(self.active_profile_id) + 1) % len(profile_keys)
+        else:
+            idx = 0
+
+        next_id = profile_keys[idx]
+        self.set_active_profile(next_id, kernel=kernel)
+        return next_id
 
     def toggle(self, kernel=None) -> bool:
         """Toggles Game Mode on/off."""

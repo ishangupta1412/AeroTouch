@@ -172,6 +172,22 @@ class GestureMath:
         return True
 
     @classmethod
+    def is_peace(cls, hand: HandLandmarks) -> bool:
+        """
+        Detects Peace / V-sign:
+        Index and Middle extended, Ring and Pinky curled.
+        """
+        if not cls.is_finger_extended(hand, tip_idx=8, pip_idx=6):
+            return False
+        if not cls.is_finger_extended(hand, tip_idx=12, pip_idx=10):
+            return False
+        if cls.is_finger_extended(hand, tip_idx=16, pip_idx=14):
+            return False
+        if cls.is_finger_extended(hand, tip_idx=20, pip_idx=18):
+            return False
+        return True
+
+    @classmethod
     def get_snap_direction(cls, right_hand: HandLandmarks) -> str:
         """
         Determines the 4-way direction of the pinch relative to the middle MCP:

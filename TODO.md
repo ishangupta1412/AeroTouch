@@ -24,4 +24,4 @@
 - [x] Integrate all modules cleanly into `SpatialOrchestrator` (`src/core/orchestrator.py`).
 - [x] Update `SpatialHUD` (`src/ui/hud.py`) and `src/main.py` hotkeys/telemetry.
 - [x] Run full test suite across all 248+ tests, verify 100% passing.
-- [ ] Commit, push to GitHub `main`, and sync both Desktop directories.
+- [x] Commit, push to GitHub `main`, and sync both Desktop directories.

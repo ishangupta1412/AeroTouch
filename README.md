@@ -1,6 +1,8 @@
-# AeroTouch
-
 <div align="center">
+
+<img src="./assets/logo.png" alt="AeroTouch Logo" width="180" />
+
+# AeroTouch
 
 ### Autonomous Dual-Hand Spatial Operating Layer for Windows 11
 *Sub-millisecond touchless computer control powered by biomechanical inverse kinematics, 1000 Hz cubic Hermite spline supersampling, live Win32 accessibility gravity basins, predictive latency compensation, in-memory audio haptics, and adaptive spatial CLAHE night vision.*

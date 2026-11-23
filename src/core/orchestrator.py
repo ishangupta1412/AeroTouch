@@ -26,6 +26,9 @@ from src.core.predictive_filter import PredictiveKinematicFilter
 from src.service.audio_haptics import AudioHapticsEngine, HapticCue
 from src.os_bridge.ui_magnetism import UIMagnetismEngine
 from src.core.app_presets import AppPresetEngine
+from src.core.biomechanical_ik import BiomechanicalIKSolver
+from src.core.hermite_spline import CubicHermiteSplineInterpolator
+from src.os_bridge.live_accessibility import LiveUIAccessibilityInspector
 
 
 class SpatialOrchestrator:
@@ -86,10 +89,20 @@ class SpatialOrchestrator:
         self.app_presets = AppPresetEngine()
         self._last_locked_ui_target: Optional[str] = None
 
+        # World-Class Biomechanical IK & 1000 Hz Spline Engines
+        self.ik_solver_right = BiomechanicalIKSolver(calibration_frames=8)
+        self.ik_solver_left = BiomechanicalIKSolver(calibration_frames=8)
+        self.hermite_spline = CubicHermiteSplineInterpolator(target_rate_hz=1000)
+        self.live_inspector = LiveUIAccessibilityInspector()
+        self._last_accessibility_probe_time: float = 0.0
+
     def recalibrate(self) -> None:
         """Resets all spatial filters, pointer ballistics, and dragging states."""
         self.filter.reset()
         self.predictive_filter.reset()
+        self.ik_solver_right.reset()
+        self.ik_solver_left.reset()
+        self.hermite_spline.reset()
         self.ballistics.reset()
         self.scroll_ctrl.reset()
         self.swipe_detector.reset()
@@ -297,6 +310,12 @@ class SpatialOrchestrator:
         if timestamp is None:
             timestamp = time.perf_counter()
 
+        # Step -0.1: Biomechanical Inverse Kinematics Bone-Length Invariance
+        if right_hand is not None:
+            right_hand = self.ik_solver_right.constrain_landmarks(right_hand)
+        if left_hand is not None:
+            left_hand = self.ik_solver_left.constrain_landmarks(left_hand)
+
         # Step 0: Shaka (🤙) Gesture Lock / Unlock State Machine
         shaka_detected = False
         if right_hand is not None and GestureMath.is_shaka(right_hand):
@@ -381,6 +400,14 @@ class SpatialOrchestrator:
             # Map to physical screen resolution
             screen_x, screen_y = self.mapper.map_to_screen(accel_x, accel_y)
 
+            # Probe live native Windows UI element under cursor to feed gravity basins
+            if (timestamp - self._last_accessibility_probe_time) > 0.040:
+                elem = self.live_inspector.get_element_rect_at_point(screen_x, screen_y)
+                if elem:
+                    target_id, el_l, el_t, el_r, el_b = elem
+                    self.magnetism.register_target(target_id, el_l, el_t, el_r, el_b)
+                self._last_accessibility_probe_time = timestamp
+
             # Sub-Pixel UI Magnetism (Apple visionOS gravitational attraction)
             screen_x, screen_y, locked_target = self.magnetism.apply_magnetism(
                 screen_x, screen_y, cursor_speed=self.ballistics.current_speed
@@ -388,6 +415,9 @@ class SpatialOrchestrator:
             if locked_target and locked_target != self._last_locked_ui_target:
                 self.haptics.trigger(HapticCue.SNAP_PING)
             self._last_locked_ui_target = locked_target
+
+            # 1000 Hz Hermite Spline supersampling
+            self.hermite_spline.add_waypoint(screen_x, screen_y, timestamp=timestamp)
 
             result_summary["cursor_pos"] = (screen_x, screen_y)
             result_summary["magnetic_lock"] = locked_target

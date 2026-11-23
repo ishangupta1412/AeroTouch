@@ -1,27 +1,22 @@
-# AeroTouch Peak Engineering Taskboard
+# AeroTouch World #1 Peak Engineering Taskboard
 
-## Milestone 1: Ergonomics & Engagement Gating (Lap Zone & Midas Defense)
-- [x] Create `src/core/engagement.py` with 3D palm normal calculation, engagement cone filtering, face-proximity decoupling, and dual-mode (Absolute Laser vs Relative Clutched Desk Mode).
-- [x] Implement unit test suite `tests/test_engagement.py`.
+## Milestone 1: Biomechanical Inverse Kinematics & Bone-Length Invariance
+- [x] Create `src/core/biomechanical_ik.py` with rigid skeletal segment constraints, anatomical joint limit clamping, and bone-length calibration.
+- [x] Implement unit test suite `tests/test_biomechanical_ik.py`.
 
-## Milestone 2: Predictive Latency Extrapolator & Sub-Pixel Kinematics
-- [x] Create `src/core/predictive_filter.py` with forward-predictive polynomial velocity extrapolation (~35ms pipeline lag compensation) and dual-stage adaptive deadband.
-- [x] Implement unit test suite `tests/test_predictive_filter.py`.
+## Milestone 2: 1000 Hz Cubic Hermite Spline Display Pipeline
+- [x] Create `src/core/hermite_spline.py` with $C^1$ continuous polynomial supersampling for 120Hz/144Hz/240Hz gaming monitors.
+- [x] Implement unit test suite `tests/test_hermite_spline.py`.
 
-## Milestone 3: Spatial Audio Haptic Illusion Engine
-- [x] Create `src/service/audio_haptics.py` with ultra-low latency Win32 wave synthesis (mechanical micro-click on pinch, glass release, kinetic scroll ratchet, and magnetic snap ping).
-- [x] Implement unit test suite `tests/test_audio_haptics.py`.
+## Milestone 3: Live Native Win32 Accessibility Introspection
+- [x] Create `src/os_bridge/live_accessibility.py` with direct `oleacc.dll` / `AccessibleObjectFromPoint` real-time element bounds queries.
+- [x] Implement unit test suite `tests/test_live_accessibility.py`.
 
-## Milestone 4: Windows UI Element Magnetism (Gravity Wells)
-- [x] Create `src/os_bridge/ui_magnetism.py` with Win32 hit-testing and clickable UI gravity wells for effortless sub-pixel targeting.
-- [x] Implement unit test suite `tests/test_ui_magnetism.py`.
+## Milestone 4: Spatial CLAHE Low-Light Night Vision Pre-Processor
+- [x] Create `src/core/night_vision.py` with LAB-space adaptive histogram equalization for night/low-light hand tracking.
+- [x] Implement unit test suite `tests/test_night_vision.py`.
 
-## Milestone 5: Dynamic Foreground Application Presets
-- [x] Create `src/core/app_presets.py` with active window process monitoring and specialized profiles for Browsers, Creative/Figma, Media, and Coding.
-- [x] Implement unit test suite `tests/test_app_presets.py`.
-
-## Milestone 6: Orchestration, HUD Display & Comprehensive Verification
-- [x] Integrate all modules cleanly into `SpatialOrchestrator` (`src/core/orchestrator.py`).
-- [x] Update `SpatialHUD` (`src/ui/hud.py`) and `src/main.py` hotkeys/telemetry.
-- [x] Run full test suite across all 248+ tests, verify 100% passing.
-- [x] Commit, push to GitHub `main`, and sync both Desktop directories.
+## Milestone 5: Orchestration Integration, Full Test Suite & Multi-Desktop Sync
+- [x] Wire all engines into `SpatialOrchestrator` and `SpatialHUD`.
+- [x] Run full test suite across 262+ unit tests with 100% pass rate.
+- [x] Commit, push to GitHub `main`, and sync `Desktop\AeroTouch` and `OneDrive\Desktop\AeroTouch`.

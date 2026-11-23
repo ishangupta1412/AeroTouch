@@ -38,6 +38,7 @@ from src.ui.tray import AeroTouchTrayDaemon
 from src.ui.air_canvas import AirCanvasOverlay
 from src.service.voice_intent import VoiceIntentService
 from src.cortex.vision_analyst import RollingVisionAnalyst
+from src.core.night_vision import AdaptiveNightVisionEnhancer
 
 
 def run_aerotouch(
@@ -91,6 +92,7 @@ def run_aerotouch(
     telemetry.open()
 
     hud = SpatialHUD()
+    night_enhancer = AdaptiveNightVisionEnhancer()
 
     island: Optional[DynamicIslandOverlay] = None
     if use_island:
@@ -227,6 +229,7 @@ def run_aerotouch(
             # Natural mirrored selfie view (OpenCV standard for interactive spatial control)
             try:
                 frame = cv2.flip(frame, 1)
+                frame, is_night = night_enhancer.enhance(frame)
             except cv2.error:
                 # Stride assertion: drop frame and let the next read recover
                 time.sleep(0.005)

@@ -74,6 +74,10 @@ class TestBiomechanicalIK(unittest.TestCase):
         # Must be restored exactly to calibrated rigid bone length
         self.assertAlmostEqual(constrained_len, calibrated_len, places=4)
 
+    def test_none_or_empty_hand_safe(self):
+        """None or malformed hands must return gracefully without raising AttributeError."""
+        self.assertIsNone(self.solver.constrain_landmarks(None))
+
     def test_reset(self):
         hand = make_clean_hand()
         for _ in range(5):

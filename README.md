@@ -10,7 +10,7 @@
 <br/>
 
 [![CI](https://github.com/ishangupta1412/AeroTouch/actions/workflows/ci.yml/badge.svg)](https://github.com/ishangupta1412/AeroTouch/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-262%20passed-10b981.svg?style=flat-square&logo=pytest&logoColor=white)](./tests)
+[![Tests Passing](https://img.shields.io/badge/tests-266%20passed-10b981.svg?style=flat-square&logo=pytest&logoColor=white)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
 [![Platform: Windows 11](https://img.shields.io/badge/Platform-Windows%2011%20%7C%2010-0078d4.svg?style=flat-square&logo=windows&logoColor=white)](https://microsoft.com/windows)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776ab.svg?style=flat-square&logo=python&logoColor=white)](https://python.org)
@@ -205,7 +205,7 @@ python -m venv .venv
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the 262-test verification suite
+# Run the 266-test verification suite
 python -m unittest discover -s tests -p "test_*.py"
 
 # Launch AeroTouch Spatial Operating Layer
@@ -271,7 +271,7 @@ AeroTouch/
 │       ├── floating_orb.py       # Ambient reactive floating glass orb
 │       └── air_canvas.py         # In-air drawing & presentation laser pointer
 │
-├── tests/                        # 262/262 Automated Unit Tests
+├── tests/                        # 266/266 Automated Unit Tests
 ├── config.toml                   # Configurable sensitivity & deadband thresholds
 ├── requirements.txt              # Dependency specification
 ├── pyproject.toml                # Modern PEP 517/518/621 packaging

@@ -64,11 +64,14 @@ class BiomechanicalIKSolver:
             self._calibrated_bone_lengths = final_lengths
             self.is_calibrated = True
 
-    def constrain_landmarks(self, hand: HandLandmarks) -> HandLandmarks:
+    def constrain_landmarks(self, hand: Optional[HandLandmarks]) -> Optional[HandLandmarks]:
         """
         Applies rigid bone-length projection and joint limits to raw landmarks.
         Returns a new HandLandmarks instance with anatomically locked bones.
         """
+        if hand is None or not hasattr(hand, "points") or not hand.points:
+            return hand
+
         points = list(hand.points)
 
         # 1. Calibration Phase

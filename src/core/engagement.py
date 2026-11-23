@@ -42,13 +42,16 @@ class EngagementGatingEngine:
         self._is_clutched: bool = False
         self.engagement_confidence: float = 0.0
 
-    def compute_palm_normal(self, hand: HandLandmarks) -> Tuple[float, float, float]:
+    def compute_palm_normal(self, hand: Optional[HandLandmarks]) -> Tuple[float, float, float]:
         """
         Computes 3D unit normal vector of the palm plane via cross product:
         v1 = Index MCP (5) - Pinky MCP (17)
         v2 = Middle MCP (9) - Wrist (0)
         Normal = v1 x v2
         """
+        if hand is None or not hasattr(hand, "points") or len(hand.points) <= 17:
+            return (0.0, 0.0, 1.0)
+
         p0 = hand.points[0]
         p5 = hand.points[5]
         p9 = hand.points[9]

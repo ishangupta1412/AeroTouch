@@ -66,25 +66,45 @@ def run_aerotouch(
         # On Windows, prefer DirectShow (CAP_DSHOW) for zero matrix-stride assertion bugs and instant start
         backends = [cv2.CAP_DSHOW, cv2.CAP_ANY] if os.name == "nt" else [cv2.CAP_ANY]
         for backend in backends:
-            c = cv2.VideoCapture(idx, backend)
-            if c.isOpened():
-                ret_ok, _ = c.read()
-                if ret_ok:
-                    c.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                    c.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-                    c.set(cv2.CAP_PROP_FPS, 60)
+            try:
+                c = cv2.VideoCapture(idx, backend)
+                if not c.isOpened():
+                    continue
+
+                # Attempt 1280x720 HD capture
+                c.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                c.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                c.set(cv2.CAP_PROP_FPS, 60)
+                ret_ok, frame = c.read()
+                if ret_ok and frame is not None and getattr(frame, "size", 0) > 0:
                     return c
+
+                # Fallback to camera native/default resolution if 720p 60fps negotiation failed
                 c.release()
+                c = cv2.VideoCapture(idx, backend)
+                if c.isOpened():
+                    ret_ok, frame = c.read()
+                    if ret_ok and frame is not None and getattr(frame, "size", 0) > 0:
+                        return c
+                c.release()
+            except Exception:
+                pass
         return None
 
     cap = _init_camera(camera_index)
     if cap is None:
-        fallback_idx = 1 if camera_index == 0 else 0
-        print(f"[AeroTouch Vision]: Camera index {camera_index} unavailable, trying fallback index {fallback_idx}...")
-        cap = _init_camera(fallback_idx)
+        # Check standard fallback camera indices (1 and 2)
+        candidate_indices = [i for i in [1, 2, 0] if i != camera_index]
+        for f_idx in candidate_indices:
+            print(f"[AeroTouch Vision]: Camera index {camera_index} unavailable, attempting index {f_idx}...")
+            cap = _init_camera(f_idx)
+            if cap is not None:
+                print(f"[AeroTouch Vision]: Connected to camera at index {f_idx}.")
+                break
+
         if cap is None:
-            print(f"[ERROR]: Could not open webcam at index {camera_index} or {fallback_idx}.")
-            print("Please check Windows camera privacy settings or close other camera apps.")
+            print(f"[ERROR]: Could not open webcam at index {camera_index} or fallbacks {candidate_indices}.")
+            print("Please verify camera privacy permissions or close apps currently using the camera.")
             return
 
     # Initialize Telemetry Logger
@@ -358,23 +378,59 @@ def run_aerotouch(
         print(f"\n[AeroTouch Runtime Warning]: Handled stream interrupt: {e}")
     finally:
         if tray:
-            tray.stop()
-        cap.release()
-        tracker.close()
-        cv2.destroyAllWindows()
+            try:
+                tray.stop()
+            except Exception:
+                pass
+        if cap is not None:
+            try:
+                cap.release()
+            except Exception:
+                pass
+        if tracker is not None:
+            try:
+                tracker.close()
+            except Exception:
+                pass
+        try:
+            cv2.destroyAllWindows()
+        except Exception:
+            pass
         if island:
-            island.stop()
-        if hud.recorder.is_recording:
-            hud.recorder.stop_recording()
+            try:
+                island.stop()
+            except Exception:
+                pass
+        if hud and hasattr(hud, "recorder") and hud.recorder.is_recording:
+            try:
+                hud.recorder.stop_recording()
+            except Exception:
+                pass
         if orb:
-            orb.stop()
+            try:
+                orb.stop()
+            except Exception:
+                pass
         if vision_analyst:
-            vision_analyst.stop()
+            try:
+                vision_analyst.stop()
+            except Exception:
+                pass
         if air_canvas:
-            air_canvas.stop()
+            try:
+                air_canvas.stop()
+            except Exception:
+                pass
         if voice_service:
-            voice_service.stop()
-        telemetry.close()
+            try:
+                voice_service.stop()
+            except Exception:
+                pass
+        if telemetry is not None:
+            try:
+                telemetry.close()
+            except Exception:
+                pass
         print("[AeroTouch]: Hardware links safely released.")
 
         # Trigger Autonomous Background Qwen Kinematic Optimization
@@ -395,6 +451,38 @@ def run_aerotouch(
 
 def main():
     args = sys.argv[1:]
+
+    if "--help" in args or "-h" in args:
+        print("""
+AeroTouch: Autonomous Dual-Hand Spatial Operating Layer for Windows 11
+
+Usage:
+  python main.py [options] [camera_index]
+
+Options:
+  --orb          Launch with ambient glowing glass orb overlay (Gemini Live style)
+  --tray         Run in system tray background mode
+  --headless     Run without preview camera window
+  --no-island    Disable top-of-screen Dynamic Island overlay
+  --no-vision    Disable background rolling vision analyst (saves memory)
+  --no-canvas    Disable transparent desktop inking canvas
+  --no-voice     Disable multimodal voice intent listener
+  -h, --help     Show this help message and exit
+
+Controls:
+  * Right Index Finger: Move mouse cursor (Biomechanical IK + 1000 Hz Hermite Spline)
+  * Right Thumb+Index Pinch: Left click (Multi-frame confirmation)
+  * Right Thumb+Middle Pinch: Right click
+  * Right Closed Fist: Grab and drag active window
+  * Left Hand 'V' (Peace): Continuous volume slider
+  * Left Fist + Right Pinch: Snap active window left/right
+  * 🤙 Shaka (Thumb+Pinky): Hold 0.6s to Pause / Resume
+  * 🤜🤛 Fist Bump: Hold 0.85s to Toggle Game Mode (Subway Surfers, Racing, Minecraft, etc.)
+  * 3-Finger Swipes: Up (Task View), Down (Desktop), Left/Right (Virtual Desktops)
+  * Two-Hand Pinch: Smooth spatial zoom (CAD, Maps, Figma)
+""")
+        return
+
     use_orb = "--orb" in args
     use_island = "--no-island" not in args
     use_tray = "--tray" in args or "--background" in args

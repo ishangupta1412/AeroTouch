@@ -11,18 +11,9 @@
 
 [![CI](https://github.com/ishangupta1412/AeroTouch/actions/workflows/ci.yml/badge.svg)](https://github.com/ishangupta1412/AeroTouch/actions/workflows/ci.yml)
 [![Tests Passing](https://img.shields.io/badge/tests-262%20passed-10b981.svg?style=flat-square&logo=pytest&logoColor=white)](./tests)
-[![Code Coverage](https://img.shields.io/badge/coverage-100%25%20core-success.svg?style=flat-square&logo=codecov&logoColor=white)](./tests)
-[![Direct Win32 Latency](https://img.shields.io/badge/latency-%3C1ms%20Win32%20C--API-8b5cf6.svg?style=flat-square)](./src/os_bridge/win32_kernel.py)
-[![Spline Supersampling](https://img.shields.io/badge/refresh-1000%20Hz%20Spline-f97316.svg?style=flat-square)](./src/core/hermite_spline.py)
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
 [![Platform: Windows 11](https://img.shields.io/badge/Platform-Windows%2011%20%7C%2010-0078d4.svg?style=flat-square&logo=windows&logoColor=white)](https://microsoft.com/windows)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776ab.svg?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square)](https://github.com/psf/black)
-[![Type Checked: Mypy](https://img.shields.io/badge/type%20checked-mypy-2563eb.svg?style=flat-square)](https://mypy-lang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square&logo=git&logoColor=white)](./CONTRIBUTING.md)
-[![GitHub Stars](https://img.shields.io/github/stars/ishangupta1412/AeroTouch?style=flat-square&logo=github&color=e3b341)](https://github.com/ishangupta1412/AeroTouch/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/ishangupta1412/AeroTouch?style=flat-square&logo=github&color=8957e5)](https://github.com/ishangupta1412/AeroTouch/network/members)
 
 <br/>
 
@@ -264,29 +255,7 @@ AeroTouch/
 
 ---
 
-## Author & Recognition
+## License & Attribution
 
-AeroTouch is conceived, architected, and engineered by **Ishan Gupta**.
-
-<div align="center">
-
-### 🏆 Creator & Developer Achievements
-
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Ishan%20Gupta-0077b5.svg?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/ishan14md?utm_source=share_via&utm_content=profile&utm_medium=member_android)
-[![Email](https://img.shields.io/badge/Email-ishan14122007%40gmail.com-ea4335.svg?style=flat-square&logo=gmail&logoColor=white)](mailto:ishan14122007@gmail.com)
-[![GitHub](https://img.shields.io/badge/GitHub-ishangupta1412-181717.svg?style=flat-square&logo=github&logoColor=white)](https://github.com/ishangupta1412)
-[![X](https://img.shields.io/badge/X-@itsishan14-000000.svg?style=flat-square&logo=x&logoColor=white)](https://x.com/itsishan14)
-
-<br/>
-
-| <img src="https://github.githubassets.com/images/modules/profile/achievements/pull-shark-default.png" width="96" alt="Pull Shark Badge" /><br/>**Pull Shark** | <img src="https://github.githubassets.com/images/modules/profile/achievements/yolo-default.png" width="96" alt="YOLO Badge" /><br/>**YOLO** | <img src="https://github.githubassets.com/images/modules/profile/achievements/quickdraw-default.png" width="96" alt="Quickdraw Badge" /><br/>**Quickdraw** |
-| :---: | :---: | :---: |
-| **Pull Shark**<br/>Merged high-velocity pull requests across repositories | **YOLO**<br/>Merged pull requests with frictionless rapid turnaround | **Quickdraw**<br/>Dispatched issues and pull requests within minutes of opening |
-
-</div>
-
----
-
-## License
-
-AeroTouch is open-source software licensed under the [MIT License](./LICENSE). Designed and built with pride for Windows workstations.
+- **Architect & Author**: [Ishan Gupta](https://github.com/ishangupta1412) ([LinkedIn](https://www.linkedin.com/in/ishan14md?utm_source=share_via&utm_content=profile&utm_medium=member_android) • [X](https://x.com/itsishan14))
+- **License**: [MIT License](./LICENSE)

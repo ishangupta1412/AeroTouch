@@ -21,6 +21,7 @@
 [**Breakthrough Engines**](#breakthrough-engineering-pillars) &nbsp;•&nbsp; 
 [**Gesture Matrix**](#bimanual-gesture-chording-matrix) &nbsp;•&nbsp; 
 [**Gaming Subsystem**](#isolated-gaming-subsystem) &nbsp;•&nbsp; 
+[**Tech Stack**](#technologies--tech-stack) &nbsp;•&nbsp; 
 [**Quickstart**](#quickstart--installation) &nbsp;•&nbsp; 
 [**Contributing**](./CONTRIBUTING.md)
 
@@ -155,6 +156,32 @@ AeroTouch features a completely isolated gaming controller engine (`src/games/`)
 | **Minecraft** | Right hand camera look, Index pinch (Mine: Left Click), Middle pinch (Place: Right Click), Left hand WASD walk, Fist (Jump), Peace (Sneak) | Minecraft, Roblox, Voxel Sandboxes |
 | **Fruit Ninja** | Index fingertip katana blade: velocity > 0.25 triggers automatic Left Mouse Down drag; deceleration releases slice; dual-hand whirlwind combo | Fruit Ninja, Blade Slashers |
 | **Flappy Bird** | Rhythm wing flap via vertical pulse flick, index pinch, or fist tap; tri-input dispatch (Space, Up Arrow, Left Click) | Flappy Bird, Geometry Dash, Rhythm Jumpers |
+
+---
+
+## Technologies & Tech Stack
+
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="65" alt="Python" />
+  &nbsp;&nbsp;
+  <img src="https://user-images.githubusercontent.com/74038190/212281775-b468df30-4edc-4bf8-a4ee-f52e1aaddc86.gif" width="65" alt="Git" />
+  &nbsp;&nbsp;
+  <img src="https://user-images.githubusercontent.com/74038190/212257468-1e9a91f1-b626-4baa-b15d-5c385dfa7ed2.gif" width="65" alt="GitHub" />
+  &nbsp;&nbsp;
+  <img src="https://user-images.githubusercontent.com/74038190/212257465-7ce8d493-cac5-494e-982a-5a9deb852c4b.gif" width="65" alt="VS Code" />
+  &nbsp;&nbsp;
+  <img src="https://github.com/Anmol-Baranwal/Cool-GIFs-For-GitHub/assets/74038190/3fb2cdf6-8920-462e-87a4-95af376418aa" width="65" alt="Terminal / OS" />
+</p>
+
+```
+Spatial Engine        Python 3.10+, NumPy (SIMD Vectorization), SciPy (Hermite Splines)
+Computer Vision       MediaPipe Tasks 3D, OpenCV (Spatial CLAHE Low-Light Night Vision)
+OS Interop & Kernel   Win32 C-Interop (ctypes, user32.dll, oleacc.dll, pycaw)
+Trajectory Synthesis  Continuous C^1 Cubic Hermite Spline Engine (1000 Hz Sub-frame)
+Tactile Simulation    Synthetic In-Memory 44.1kHz PCM Audio Haptics (winsound)
+Gaming Subsystem      State-Machine Profile Engine, Dual-Fist Collision Gating
+Testing & CI          Unittest (262/262 Tests), GitHub Actions (Py 3.10, 3.11, 3.12)
+```
 
 ---
 

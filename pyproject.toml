@@ -52,6 +52,7 @@ dependencies = [
 Homepage = "https://github.com/ishangupta1412/AeroTouch"
 Repository = "https://github.com/ishangupta1412/AeroTouch.git"
 Issues = "https://github.com/ishangupta1412/AeroTouch/issues"
+LinkedIn = "https://www.linkedin.com/in/ishan14md?utm_source=share_via&utm_content=profile&utm_medium=member_android"
 
 [project.scripts]
 aerotouch = "src.main:run_aerotouch"

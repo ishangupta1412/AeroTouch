@@ -22,13 +22,19 @@ class VolumeController:
         self._volume = None
         self._available = False
         try:
-            from ctypes import cast, POINTER
-            from comtypes import CLSCTX_ALL
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            self._volume = cast(interface, POINTER(IAudioEndpointVolume))
-            self._available = True
+            from pycaw.pycaw import AudioUtilities
+            speakers = AudioUtilities.GetSpeakers()
+            # Modern pycaw (2024+) provides EndpointVolume directly on AudioDevice
+            if hasattr(speakers, "EndpointVolume") and speakers.EndpointVolume is not None:
+                self._volume = speakers.EndpointVolume
+                self._available = True
+            elif hasattr(speakers, "Activate"):
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                from pycaw.pycaw import IAudioEndpointVolume
+                interface = speakers.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                self._volume = cast(interface, POINTER(IAudioEndpointVolume))
+                self._available = True
         except Exception:
             self._available = False
 

@@ -109,6 +109,11 @@ class DynamicIslandOverlay:
             })
         except Exception:
             pass
+        if self.root:
+            try:
+                self.root.after(0, self._cleanup_root)
+            except Exception:
+                pass
         if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
             try:
                 self._thread.join(timeout=0.6)

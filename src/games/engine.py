@@ -81,6 +81,11 @@ class GameEngine:
         # Default active profile
         self.active_profile_id = "subway_surfers"
 
+    @property
+    def profiles(self) -> Dict[str, BaseGameProfile]:
+        """Provides access to registered game profiles dict."""
+        return self._profiles
+
     def register_profile(self, profile: BaseGameProfile) -> None:
         """Registers a new game profile into the engine."""
         self._profiles[profile.game_id] = profile

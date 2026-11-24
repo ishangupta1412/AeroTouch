@@ -191,6 +191,11 @@ class FloatingOrbOverlay:
     def stop(self):
         """Closes and destroys the orb overlay."""
         self.running = False
+        if self.root:
+            try:
+                self.root.after(0, self._cleanup_root)
+            except Exception:
+                pass
         if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
             try:
                 self._thread.join(timeout=0.6)
@@ -204,6 +209,7 @@ class FloatingOrbOverlay:
                 self.root.destroy()
         except Exception:
             pass
+        self.root = None
 
 
 if __name__ == "__main__":

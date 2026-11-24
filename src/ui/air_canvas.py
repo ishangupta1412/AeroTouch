@@ -72,11 +72,25 @@ class AirCanvasOverlay:
         """Cleanly destroys the transparent overlay window."""
         self.running = False
         self._post_update({"type": "stop"})
+        if self.root:
+            try:
+                self.root.after(0, self._cleanup_root)
+            except Exception:
+                pass
         if self._thread and self._thread.is_alive():
             try:
                 self._thread.join(timeout=0.6)
             except Exception:
                 pass
+
+    def _cleanup_root(self):
+        try:
+            if self.root:
+                self.root.quit()
+                self.root.destroy()
+        except Exception:
+            pass
+        self.root = None
 
     def set_laser(self, enabled: bool):
         """Toggles presentation laser pointer mode."""

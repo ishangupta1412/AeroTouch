@@ -146,9 +146,9 @@ class SpatialOrchestrator:
             "min_cutoff": 0.05,
             "beta": 0.015,
             "deadband": 0.0025,
-            "pinch_threshold": 0.28,
-            "release_threshold": 0.38,
-            "debounce_seconds": 0.20,
+            "pinch_threshold": 0.32,
+            "release_threshold": 0.42,
+            "debounce_seconds": 0.15,
             "confirm_frames": 2,
             "shaka_frames": 35
         }
@@ -481,14 +481,16 @@ class SpatialOrchestrator:
             # Fist-based Spatial Window Dragging
             fist_ev = action_state.get("fist_event")
             if fist_ev == "DRAG_START":
-                hwnd = self.kernel.get_foreground_window()
-                rect = self.kernel.get_window_rect(hwnd)
-                self.dragger.start_drag(hwnd, rect, screen_x, screen_y)
-                result_summary["action_executed"] = "WINDOW_DRAG_START"
+                hwnd = self.kernel.get_target_window_at_point_or_foreground(screen_x, screen_y)
+                if hwnd:
+                    rect = self.kernel.get_window_rect(hwnd)
+                    self.dragger.start_drag(hwnd, rect, screen_x, screen_y)
+                    result_summary["action_executed"] = "WINDOW_DRAG_START"
             elif action_state.get("is_fist") and self.dragger.is_dragging:
                 hwnd, new_x, new_y, w, h = self.dragger.update_drag(screen_x, screen_y)
-                self.kernel.move_window(hwnd, new_x, new_y, w, h)
-                result_summary["action_executed"] = "WINDOW_DRAG_MOVE"
+                if hwnd:
+                    self.kernel.move_window(hwnd, new_x, new_y, w, h)
+                    result_summary["action_executed"] = "WINDOW_DRAG_MOVE"
             elif fist_ev == "DRAG_END" and self.dragger.is_dragging:
                 self.dragger.end_drag()
                 result_summary["action_executed"] = "WINDOW_DRAG_END"
@@ -515,6 +517,9 @@ class SpatialOrchestrator:
                 elif left_mode == HandMode.DESKTOP_SWITCH:
                     self.kernel.hotkey(VirtualKey.VK_LWIN, VirtualKey.VK_CONTROL, VirtualKey.VK_RIGHT)
                     result_summary["action_executed"] = "DESKTOP_NEXT"
+                elif left_mode == HandMode.MEDIA_CONTROL:
+                    # In continuous volume mode, pinch adjusts volume scalar without injecting synthetic mouse click
+                    pass
                 else:
                     self.kernel.click(left=True)
                     result_summary["action_executed"] = "MOUSE_LEFT_CLICK"

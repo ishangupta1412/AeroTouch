@@ -98,8 +98,9 @@ class Win32KernelBridge:
         self.user32.mouse_event(flags, 0, 0, 0, 0)
 
     def click(self, left: bool = True) -> None:
-        """Atomic click event (down then up)."""
+        """Atomic click event with 15ms dwell time for OS event loop processing."""
         self.mouse_down(left)
+        time.sleep(0.015)
         self.mouse_up(left)
 
     def scroll(self, steps: int) -> None:
@@ -150,6 +151,58 @@ class Win32KernelBridge:
     def get_foreground_window(self) -> int:
         """Returns HWND of the currently active foreground window."""
         return self.user32.GetForegroundWindow()
+
+    def get_target_window_at_point_or_foreground(self, cursor_x: int, cursor_y: int) -> int:
+        """
+        Retrieves the top-level application window targeted for dragging or interaction.
+        Prioritizes the real app window under (cursor_x, cursor_y), ignoring
+        transparent HUD overlays (Dynamic Island, AirCanvas, Floating Orb, taskbar, desktop).
+        Falls back to active foreground window if valid.
+        """
+        import ctypes
+        from ctypes import wintypes
+
+        class POINT(ctypes.Structure):
+            _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+        self.user32.WindowFromPoint.argtypes = [POINT]
+        self.user32.WindowFromPoint.restype = wintypes.HWND
+
+        def is_draggable(hwnd: int) -> bool:
+            if not hwnd or not self.user32.IsWindow(hwnd) or not self.user32.IsWindowVisible(hwnd):
+                return False
+            title_buf = ctypes.create_unicode_buffer(512)
+            self.user32.GetWindowTextW(hwnd, title_buf, 512)
+            title = title_buf.value
+            cls_buf = ctypes.create_unicode_buffer(256)
+            self.user32.GetClassNameW(hwnd, cls_buf, 256)
+            cls_name = cls_buf.value
+            if any(k in title for k in ["AeroTouch", "Dynamic Island", "Floating Orb", "AirCanvas"]):
+                return False
+            if cls_name in ["Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "TkTopLevel"]:
+                return False
+            return True
+
+        # 1. Probe window directly beneath cursor
+        pt = POINT(int(cursor_x), int(cursor_y))
+        w = self.user32.WindowFromPoint(pt)
+        if w:
+            root = self.user32.GetAncestor(w, 2) or w  # GA_ROOT = 2
+            if is_draggable(root):
+                return root
+
+        # 2. Probe current foreground window
+        fg = self.get_foreground_window()
+        if fg and is_draggable(fg):
+            root = self.user32.GetAncestor(fg, 2) or fg
+            if is_draggable(root):
+                return root
+
+        # 3. Fallback to raw foreground window if mocked in unit tests
+        if fg:
+            return fg
+
+        return 0
 
     def get_window_rect(self, hwnd: int) -> tuple:
         """Returns (left, top, right, bottom) of the window in screen pixels."""

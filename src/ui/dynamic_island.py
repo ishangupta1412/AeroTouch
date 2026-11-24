@@ -154,7 +154,7 @@ class DynamicIslandOverlay:
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(
                 hwnd, GWL_EXSTYLE,
-                style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE
+                style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_LAYERED
             )
         except Exception:
             pass
@@ -189,6 +189,8 @@ class DynamicIslandOverlay:
             child = self.root.winfo_id()
             top = ctypes.windll.user32.GetParent(child) or child
             self._enable_click_through(top)
+            if child != top:
+                self._enable_click_through(child)
         except Exception:
             pass
 

@@ -218,9 +218,9 @@ class BimanualEngine:
 
     def __init__(
         self,
-        pinch_threshold: float = 0.28,
-        release_threshold: float = 0.38,
-        debounce_seconds: float = 0.20,
+        pinch_threshold: float = 0.32,
+        release_threshold: float = 0.42,
+        debounce_seconds: float = 0.15,
         confirm_frames: int = 2
     ):
         self.pinch_threshold = pinch_threshold

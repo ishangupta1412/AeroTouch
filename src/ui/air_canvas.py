@@ -61,36 +61,31 @@ class AirCanvasOverlay:
         self.anim_phase: float = 0.0
 
     def start(self):
-        """Launches AirCanvas in a dedicated background UI thread."""
+        """Launches AirCanvas on the shared Tkinter UI host thread."""
         if self.running:
             return
         self.running = True
-        self._thread = threading.Thread(target=self._run_ui, daemon=True)
-        self._thread.start()
+        from src.ui.tk_host import get_tk_host
+        get_tk_host().post(self._init_window)
 
     def stop(self):
         """Cleanly destroys the transparent overlay window."""
         self.running = False
         self._post_update({"type": "stop"})
-        if self.root:
-            try:
-                self.root.after(0, self._cleanup_root)
-            except Exception:
-                pass
-        if self._thread and self._thread.is_alive():
-            try:
-                self._thread.join(timeout=0.6)
-            except Exception:
-                pass
+        try:
+            from src.ui.tk_host import get_tk_host
+            get_tk_host().post(lambda _master: self._cleanup_root())
+        except Exception:
+            pass
 
     def _cleanup_root(self):
         try:
             if self.root:
-                self.root.quit()
                 self.root.destroy()
         except Exception:
             pass
         self.root = None
+        self.canvas = None
 
     def set_laser(self, enabled: bool):
         """Toggles presentation laser pointer mode."""
@@ -141,13 +136,15 @@ class AirCanvasOverlay:
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(
                 hwnd, GWL_EXSTYLE,
-                style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE
+                style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_LAYERED
             )
         except Exception:
             pass
 
-    def _run_ui(self):
-        self.root = tk.Tk()
+    def _init_window(self, master: tk.Tk):
+        if not self.running:
+            return
+        self.root = tk.Toplevel(master)
         self.root.title("AeroTouch AirCanvas")
         self.root.overrideredirect(True)
         self.root.wm_attributes("-topmost", True)
@@ -171,21 +168,18 @@ class AirCanvasOverlay:
         )
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        self.root.update()
-        top_hwnd = self._get_toplevel_hwnd()
-        if top_hwnd:
-            self._enable_click_through(top_hwnd)
+        self.root.update_idletasks()
+        try:
+            child = self.root.winfo_id()
+            top = self._get_toplevel_hwnd()
+            if top:
+                self._enable_click_through(top)
+            if child and child != top:
+                self._enable_click_through(child)
+        except Exception:
+            pass
 
         self._render_loop()
-        try:
-            self.root.mainloop()
-        finally:
-            try:
-                if self.root:
-                    self.root.destroy()
-            except Exception:
-                pass
-            self.root = None
 
     def _drain_messages(self) -> bool:
         """Drains incoming thread messages. Returns True if a stop command was received."""
@@ -195,13 +189,7 @@ class AirCanvasOverlay:
                 mtype = msg.get("type")
                 if mtype == "stop":
                     self.running = False
-                    if self.root:
-                        try:
-                            self.root.quit()
-                            self.root.destroy()
-                            self.root = None
-                        except Exception:
-                            pass
+                    self._cleanup_root()
                     return True
                 elif mtype == "laser_toggle":
                     self.laser_enabled = msg["enabled"]

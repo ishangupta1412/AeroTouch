@@ -35,15 +35,18 @@ class FloatingOrbOverlay:
         self.drag_y = 0
 
     def start(self):
-        """Starts the floating orb in a dedicated UI thread."""
+        """Starts the floating orb on the shared Tkinter UI host thread."""
         if self.running:
             return
         self.running = True
-        self._thread = threading.Thread(target=self._run_ui, daemon=True)
-        self._thread.start()
+        from src.ui.tk_host import get_tk_host
+        get_tk_host().post(self._init_window)
 
-    def _run_ui(self):
-        self.root = tk.Tk()
+    def _init_window(self, master: tk.Tk):
+        if not self.running:
+            return
+        self.root = tk.Toplevel(master)
+        self.root.title("AeroTouch Floating Orb")
         self.root.overrideredirect(True)
         self.root.wm_attributes("-topmost", True)
 
@@ -74,6 +77,8 @@ class FloatingOrbOverlay:
             self.drag_y = event.y
 
         def on_drag(event):
+            if not self.root:
+                return
             dx = event.x - self.drag_x
             dy = event.y - self.drag_y
             new_x = self.root.winfo_x() + dx
@@ -84,15 +89,6 @@ class FloatingOrbOverlay:
         self.canvas.bind("<B1-Motion>", on_drag)
 
         self._animate_loop()
-        try:
-            self.root.mainloop()
-        finally:
-            try:
-                if self.root:
-                    self.root.destroy()
-            except Exception:
-                pass
-            self.root = None
 
     def set_state(self, is_tracking: bool, action: Optional[str] = None):
         """Thread-safe update of current tracking and gesture state."""
@@ -103,11 +99,7 @@ class FloatingOrbOverlay:
 
     def _animate_loop(self):
         if not self.running or not self.root:
-            if self.root:
-                try:
-                    self.root.quit()
-                except Exception:
-                    pass
+            self._cleanup_root()
             return
 
         self.phase += 0.08
@@ -191,25 +183,20 @@ class FloatingOrbOverlay:
     def stop(self):
         """Closes and destroys the orb overlay."""
         self.running = False
-        if self.root:
-            try:
-                self.root.after(0, self._cleanup_root)
-            except Exception:
-                pass
-        if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
-            try:
-                self._thread.join(timeout=0.6)
-            except Exception:
-                pass
+        try:
+            from src.ui.tk_host import get_tk_host
+            get_tk_host().post(lambda _master: self._cleanup_root())
+        except Exception:
+            pass
 
     def _cleanup_root(self):
         try:
             if self.root:
-                self.root.quit()
                 self.root.destroy()
         except Exception:
             pass
         self.root = None
+        self.canvas = None
 
 
 if __name__ == "__main__":

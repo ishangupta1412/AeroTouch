@@ -483,6 +483,8 @@ class SpatialOrchestrator:
             if fist_ev == "DRAG_START":
                 hwnd = self.kernel.get_target_window_at_point_or_foreground(screen_x, screen_y)
                 if hwnd:
+                    if hasattr(self.kernel, "is_window_maximized") and self.kernel.is_window_maximized(hwnd) is True:
+                        self.kernel.restore_window(hwnd)
                     rect = self.kernel.get_window_rect(hwnd)
                     self.dragger.start_drag(hwnd, rect, screen_x, screen_y)
                     result_summary["action_executed"] = "WINDOW_DRAG_START"

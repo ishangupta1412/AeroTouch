@@ -90,12 +90,12 @@ class DynamicIslandOverlay:
         self.anim_phase: float = 0.0
 
     def start(self):
-        """Launches Dynamic Island in a dedicated background UI thread."""
+        """Launches Dynamic Island on the shared Tkinter UI host thread."""
         if self.running:
             return
         self.running = True
-        self._thread = threading.Thread(target=self._run_ui, daemon=True)
-        self._thread.start()
+        from src.ui.tk_host import get_tk_host
+        get_tk_host().post(self._init_window)
 
     def stop(self):
         self.running = False
@@ -109,25 +109,20 @@ class DynamicIslandOverlay:
             })
         except Exception:
             pass
-        if self.root:
-            try:
-                self.root.after(0, self._cleanup_root)
-            except Exception:
-                pass
-        if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
-            try:
-                self._thread.join(timeout=0.6)
-            except Exception:
-                pass
+        try:
+            from src.ui.tk_host import get_tk_host
+            get_tk_host().post(lambda _master: self._cleanup_root())
+        except Exception:
+            pass
 
     def _cleanup_root(self):
         try:
             if self.root:
-                self.root.quit()
                 self.root.destroy()
-                self.root = None
         except Exception:
             pass
+        self.root = None
+        self.canvas = None
 
     def update_telemetry(
         self,
@@ -159,8 +154,10 @@ class DynamicIslandOverlay:
         except Exception:
             pass
 
-    def _run_ui(self):
-        self.root = tk.Tk()
+    def _init_window(self, master: tk.Tk):
+        if not self.running:
+            return
+        self.root = tk.Toplevel(master)
         self.root.title("AeroTouch Dynamic Island")
         self.root.overrideredirect(True)
         self.root.wm_attributes("-topmost", True)
@@ -184,7 +181,7 @@ class DynamicIslandOverlay:
         )
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        self.root.update()
+        self.root.update_idletasks()
         try:
             child = self.root.winfo_id()
             top = ctypes.windll.user32.GetParent(child) or child
@@ -195,15 +192,6 @@ class DynamicIslandOverlay:
             pass
 
         self._tick_loop()
-        try:
-            self.root.mainloop()
-        finally:
-            try:
-                if self.root:
-                    self.root.destroy()
-            except Exception:
-                pass
-            self.root = None
 
     def _drain_queue(self) -> bool:
         while not self._state_queue.empty():

@@ -177,7 +177,7 @@ class Win32KernelBridge:
             cls_buf = ctypes.create_unicode_buffer(256)
             self.user32.GetClassNameW(hwnd, cls_buf, 256)
             cls_name = cls_buf.value
-            if any(k in title for k in ["AeroTouch", "Dynamic Island", "Floating Orb", "AirCanvas"]):
+            if any(k in title for k in ["Dynamic Island", "Floating Orb", "AirCanvas", "AeroTouchTrayWindow"]):
                 return False
             if cls_name in ["Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "TkTopLevel"]:
                 return False
@@ -221,6 +221,15 @@ class Win32KernelBridge:
         SWP_NOACTIVATE = 0x0010
         self.user32.SetWindowPos(hwnd, 0, int(x), int(y), int(w), int(h),
                                  SWP_NOZORDER | SWP_NOACTIVATE)
+
+    def is_window_maximized(self, hwnd: int) -> bool:
+        """Returns True if the target window is currently maximized."""
+        if not hwnd:
+            return False
+        try:
+            return bool(self.user32.IsZoomed(hwnd))
+        except Exception:
+            return False
 
     def restore_window(self, hwnd: int) -> None:
         """Restores a maximized window so it can be dragged freely."""

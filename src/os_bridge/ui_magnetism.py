@@ -8,13 +8,14 @@ Allows effortless sub-pixel targeting on 16px buttons, tabs, and checkboxes:
 """
 
 import math
+import time
 from typing import Dict, List, Optional, Tuple
 
 
 class UITargetRect:
     """Represents a clickable or interactive UI element bounding box."""
 
-    def __init__(self, target_id: str, left: int, top: int, right: int, bottom: int):
+    def __init__(self, target_id: str, left: int, top: int, right: int, bottom: int, timestamp: Optional[float] = None):
         self.target_id = target_id
         self.left = left
         self.top = top
@@ -22,6 +23,7 @@ class UITargetRect:
         self.bottom = bottom
         self.center_x = (left + right) // 2
         self.center_y = (top + bottom) // 2
+        self.last_seen: float = timestamp if timestamp is not None else time.perf_counter()
 
     def distance_to_center(self, x: float, y: float) -> float:
         dx = x - self.center_x
@@ -43,17 +45,31 @@ class UIMagnetismEngine:
         snap_radius: float = 32.0,
         attraction_strength: float = 0.65,
         escape_speed_threshold: float = 0.35,
+        ttl_seconds: float = 2.5,
+        max_targets: int = 32,
     ):
         self.snap_radius = snap_radius
         self.attraction_strength = attraction_strength
         self.escape_speed_threshold = escape_speed_threshold
+        self.ttl_seconds = ttl_seconds
+        self.max_targets = max_targets
 
         self._active_targets: Dict[str, UITargetRect] = {}
         self.current_locked_target: Optional[str] = None
 
     def register_target(self, target_id: str, left: int, top: int, right: int, bottom: int) -> None:
-        """Registers a UI element boundary rect."""
-        self._active_targets[target_id] = UITargetRect(target_id, left, top, right, bottom)
+        """Registers or refreshes a UI element boundary rect, evicting stale targets."""
+        now = time.perf_counter()
+        self._active_targets[target_id] = UITargetRect(target_id, left, top, right, bottom, timestamp=now)
+        if len(self._active_targets) > self.max_targets:
+            oldest_key = min(self._active_targets, key=lambda k: self._active_targets[k].last_seen)
+            if oldest_key != target_id:
+                self._active_targets.pop(oldest_key, None)
+
+    def _prune_stale_targets(self, now: float) -> None:
+        stale = [k for k, t in self._active_targets.items() if (now - t.last_seen) > self.ttl_seconds]
+        for k in stale:
+            self._active_targets.pop(k, None)
 
     def clear_targets(self) -> None:
         """Clears all dynamic target rects."""
@@ -75,6 +91,8 @@ class UIMagnetismEngine:
         if cursor_speed >= self.escape_speed_threshold:
             self.current_locked_target = None
             return screen_x, screen_y, None
+
+        self._prune_stale_targets(time.perf_counter())
 
         nearest_target: Optional[UITargetRect] = None
         min_dist: float = float("inf")

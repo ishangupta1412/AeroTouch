@@ -6,6 +6,7 @@ Supports adaptive profile loading tuned by Qwen background coach.
 
 import os
 import json
+import threading
 import time
 from typing import Dict, Optional, Tuple
 
@@ -95,6 +96,49 @@ class SpatialOrchestrator:
         self.hermite_spline = CubicHermiteSplineInterpolator(target_rate_hz=1000)
         self.live_inspector = LiveUIAccessibilityInspector()
         self._last_accessibility_probe_time: float = 0.0
+        self._hermite_running: bool = False
+        self._hermite_thread: Optional[threading.Thread] = None
+        self._hermite_last_waypoint_time: float = 0.0
+        self._hermite_last_sent: Optional[Tuple[int, int]] = None
+
+    def start_hermite_driver(self, rate_hz: int = 120) -> None:
+        """Starts high-frequency Hermite sub-frame cursor interpolation between camera frames."""
+        if self._hermite_running:
+            return
+        self._hermite_running = True
+        interval = 1.0 / max(60, rate_hz)
+
+        def _loop():
+            while self._hermite_running:
+                now = time.perf_counter()
+                if (
+                    not self.is_locked
+                    and not self.game_engine.is_active
+                    and (now - self._hermite_last_waypoint_time) < 0.08
+                    and len(self.hermite_spline._history) >= 2
+                ):
+                    ix, iy = self.hermite_spline.evaluate_at(now)
+                    px, py = int(ix), int(iy)
+                    if self._hermite_last_sent != (px, py):
+                        self._hermite_last_sent = (px, py)
+                        try:
+                            self.kernel.move_cursor(px, py)
+                        except Exception:
+                            pass
+                time.sleep(interval)
+
+        self._hermite_thread = threading.Thread(target=_loop, daemon=True, name="AeroTouchHermiteDriver")
+        self._hermite_thread.start()
+
+    def stop_hermite_driver(self) -> None:
+        """Stops the high-frequency Hermite cursor driver cleanly."""
+        self._hermite_running = False
+        if self._hermite_thread and self._hermite_thread.is_alive():
+            try:
+                self._hermite_thread.join(timeout=0.3)
+            except Exception:
+                pass
+        self._hermite_thread = None
 
     def recalibrate(self) -> None:
         """Resets all spatial filters, pointer ballistics, and dragging states."""
@@ -144,8 +188,8 @@ class SpatialOrchestrator:
         """Loads configuration from config.toml and adaptive user_profile.json."""
         defaults = {
             "min_cutoff": 0.05,
-            "beta": 0.015,
-            "deadband": 0.0025,
+            "beta": 1.8,
+            "deadband": 0.0020,
             "pinch_threshold": 0.32,
             "release_threshold": 0.42,
             "debounce_seconds": 0.15,
@@ -388,16 +432,17 @@ class SpatialOrchestrator:
             norm_x = action_state["cursor_x"]
             norm_y = action_state["cursor_y"]
 
-            # Predictive Latency Forward Extrapolation & Deadband
-            pred_x, pred_y = self.predictive_filter.filter_and_predict(norm_x, norm_y, timestamp=timestamp)
+            # 1. Stage 1: Adaptive 1-Euro Filter (eliminates high-frequency hand tremor first)
+            smooth_x, smooth_y = self.filter.filter(norm_x, norm_y, timestamp=timestamp)
 
-            # Filter with Deadband Noise Gate — eliminates micro-vibrations completely
-            smooth_x, smooth_y = self.filter.filter(pred_x, pred_y, timestamp=timestamp)
+            # 2. Stage 2: Forward-Predictive Latency Extrapolation (cancels ~35ms USB lag)
+            pred_x, pred_y = self.predictive_filter.filter_and_predict(smooth_x, smooth_y, timestamp=timestamp)
 
-            # Apply Dynamic Pointer Ballistics (Sniper Precision Mode & Flick Acceleration)
-            accel_x, accel_y = self.ballistics.apply(smooth_x, smooth_y, timestamp=timestamp)
+            # 3. Stage 3: Dynamic Pointer Ballistics (Sniper Precision Mode & Flick Acceleration)
+            accel_x, accel_y = self.ballistics.apply(pred_x, pred_y, timestamp=timestamp)
 
-            # Map to physical screen resolution
+            # 4. Dynamic Ergonomic Reach & Screen Space Mapping
+            self.mapper.update_ergonomics(GestureMath.hand_scale(right_hand))
             screen_x, screen_y = self.mapper.map_to_screen(accel_x, accel_y)
 
             # Probe live native Windows UI element under cursor to feed gravity basins
@@ -418,6 +463,7 @@ class SpatialOrchestrator:
 
             # 1000 Hz Hermite Spline supersampling
             self.hermite_spline.add_waypoint(screen_x, screen_y, timestamp=timestamp)
+            self._hermite_last_waypoint_time = timestamp
 
             result_summary["cursor_pos"] = (screen_x, screen_y)
             result_summary["magnetic_lock"] = locked_target
@@ -530,6 +576,15 @@ class SpatialOrchestrator:
                 self.haptics.trigger(HapticCue.MECHANICAL_CLICK)
                 self.kernel.click(left=False)
                 result_summary["action_executed"] = "MOUSE_RIGHT_CLICK"
+
+            # Pinch-and-Hold Drag-and-Drop / Text Selection
+            pinch_hold_ev = action_state.get("pinch_hold_event")
+            if pinch_hold_ev == "PINCH_DOWN" and left_mode == HandMode.POINTER_NAV:
+                self.kernel.mouse_down(left=True)
+                result_summary["action_executed"] = "MOUSE_PINCH_HOLD_START"
+            elif pinch_hold_ev == "PINCH_UP":
+                self.kernel.mouse_up(left=True)
+                result_summary["action_executed"] = "MOUSE_PINCH_HOLD_END"
 
             # Check Custom Few-Shot Gestures (e.g. Media, Hotkey, Screenshot)
             if not is_scroll and not action_state.get("is_fist") and not action_state.get("click_event"):

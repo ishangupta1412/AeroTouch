@@ -3,8 +3,8 @@
 [filter]
 # One Euro Filter parameters
 min_cutoff = 0.05       # Rock-solid stillness at rest (dampens micro-tremor)
-beta = 0.015            # Dynamic speed response for rapid sweeps
-deadband = 0.0025       # Minimum normalized movement delta to unfreeze cursor (~4.8px on 1080p)
+beta = 1.8              # Dynamic speed response for rapid sweeps in normalized [0,1] space
+deadband = 0.0020       # Minimum normalized movement delta to unfreeze cursor (~3.8px on 1080p)
 
 [ballistics]
 # Pointer Acceleration & Micro-Precision Curves

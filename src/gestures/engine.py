@@ -221,18 +221,28 @@ class BimanualEngine:
         pinch_threshold: float = 0.32,
         release_threshold: float = 0.42,
         debounce_seconds: float = 0.15,
-        confirm_frames: int = 2
+        confirm_frames: int = 2,
+        pre_pinch_threshold: float = 0.46,
+        hold_threshold_seconds: float = 0.24,
     ):
         self.pinch_threshold = pinch_threshold
         self.release_threshold = release_threshold
         self.debounce_seconds = debounce_seconds
         self.confirm_frames = confirm_frames
+        self.pre_pinch_threshold = pre_pinch_threshold
+        self.hold_threshold_seconds = hold_threshold_seconds
 
         self.is_pinching: bool = False
         self.pinch_streak: int = 0
         self.middle_pinch_streak: int = 0
         self.last_click_time: float = 0.0
         self.current_left_mode: HandMode = HandMode.POINTER_NAV
+
+        # Pinch-drift stabilization & pinch-hold drag state
+        self._pinch_anchor: Optional[Tuple[float, float]] = None
+        self._pinch_start_time: float = 0.0
+        self._is_pinch_holding: bool = False
+        self._last_click_was_left: bool = False
 
         # Fist-drag state (multi-frame confirmed for stability)
         self.fist_streak: int = 0
@@ -276,6 +286,7 @@ class BimanualEngine:
         click_event = None
         right_click_event = None
         fist_event = None
+        pinch_hold_event = None
 
         # Fist Detection State Machine
         raw_is_fist = GestureMath.is_fist(right_hand)
@@ -313,18 +324,52 @@ class BimanualEngine:
                 if self.pinch_streak >= self.confirm_frames:
                     self.is_pinching = True
                     self.last_click_time = now
+                    self._pinch_start_time = now
+                    self._is_pinch_holding = False
+                    self._last_click_was_left = True
                     click_event = "LEFT_CLICK"
                 # Right Click verified over confirmed frames
                 elif self.middle_pinch_streak >= self.confirm_frames:
                     self.is_pinching = True
                     self.last_click_time = now
+                    self._pinch_start_time = now
+                    self._is_pinch_holding = False
+                    self._last_click_was_left = False
                     right_click_event = "RIGHT_CLICK"
         else:
             # Release pinch state cleanly when both fingers separate past release threshold
             if (norm_pinch > self.release_threshold) and (norm_middle_pinch > self.release_threshold):
+                if self._is_pinch_holding:
+                    self._is_pinch_holding = False
+                    pinch_hold_event = "PINCH_UP"
                 self.is_pinching = False
                 self.pinch_streak = 0
                 self.middle_pinch_streak = 0
+                self._pinch_anchor = None
+            elif (
+                self._last_click_was_left
+                and not self._is_pinch_holding
+                and (now - self._pinch_start_time) >= self.hold_threshold_seconds
+                and norm_pinch <= self.release_threshold
+            ):
+                # Sustained left pinch transitions into drag-and-drop / text-selection hold
+                self._is_pinch_holding = True
+                pinch_hold_event = "PINCH_DOWN"
+
+        # Pinch-Drift Stabilization: dampens downward index-tip pull during click approach
+        approaching_pinch = (
+            (norm_pinch < self.pre_pinch_threshold or norm_middle_pinch < self.pre_pinch_threshold)
+            and not self.is_fist_active
+        )
+        if approaching_pinch and not self._is_pinch_holding:
+            if self._pinch_anchor is None:
+                self._pinch_anchor = (raw_x, raw_y)
+            else:
+                ax, ay = self._pinch_anchor
+                raw_x = ax + (raw_x - ax) * 0.15
+                raw_y = ay + (raw_y - ay) * 0.15
+        elif not approaching_pinch and not self.is_pinching:
+            self._pinch_anchor = None
 
         # Two-Finger Scroll Detection
         is_scroll = False
@@ -345,6 +390,8 @@ class BimanualEngine:
             "middle_pinch_distance": norm_middle_pinch,
             "pinch_scalar": pinch_scalar,
             "is_pinching": self.is_pinching,
+            "is_pinch_holding": self._is_pinch_holding,
+            "pinch_hold_event": pinch_hold_event,
             "is_scroll": is_scroll,
             "scroll_y": scroll_y,
             "is_fist": self.is_fist_active,

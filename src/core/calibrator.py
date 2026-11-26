@@ -156,9 +156,27 @@ class ScreenSpaceMapper:
     ):
         self.screen_width = screen_width
         self.screen_height = screen_height
+        self.base_margin_x = margin_x
+        self.base_margin_y = margin_y
         self.margin_x = margin_x
         self.margin_y = margin_y
         self.flip_x = flip_x
+
+    def update_ergonomics(self, hand_scale: float, reference_scale: float = 0.14) -> None:
+        """
+        Dynamically adapts the ergonomic active tracking envelope based on user's
+        distance from the webcam (measured via 3D wrist-to-middle-MCP hand_scale).
+        """
+        if hand_scale <= 0.01:
+            return
+        # Farther away -> smaller hand_scale -> slightly larger margin (smaller box = easier reach)
+        ratio = max(0.65, min(1.45, reference_scale / hand_scale))
+        target_mx = max(0.10, min(0.25, self.base_margin_x * ratio))
+        target_my = max(0.12, min(0.26, self.base_margin_y * ratio))
+        # Smooth EMA to prevent sudden jumps
+        alpha = 0.05
+        self.margin_x = self.margin_x + (target_mx - self.margin_x) * alpha
+        self.margin_y = self.margin_y + (target_my - self.margin_y) * alpha
 
     def map_to_screen(self, norm_x: float, norm_y: float) -> Tuple[int, int]:
         """

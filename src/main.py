@@ -57,6 +57,7 @@ def run_aerotouch(
     print("Status: Initializing Precision Spatial Hardware Bridge...")
 
     orchestrator = SpatialOrchestrator()
+    orchestrator.start_hermite_driver(rate_hz=120)
     w, h = orchestrator.kernel.get_screen_resolution()
     print(f"Hardware Monitor: {w}x{h} Native Win32 Subsystem Linked")
 
@@ -377,6 +378,10 @@ def run_aerotouch(
     except Exception as e:
         print(f"\n[AeroTouch Runtime Warning]: Handled stream interrupt: {e}")
     finally:
+        try:
+            orchestrator.stop_hermite_driver()
+        except Exception:
+            pass
         if tray:
             try:
                 tray.stop()

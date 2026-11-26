@@ -48,6 +48,8 @@ class DualHandTracker:
         self.num_hands = num_hands
         self.mirrored = mirrored
         self.detector = None
+        self._video_mode: bool = False
+        self._last_timestamp_ms: int = 0
 
         try:
             import mediapipe as mp
@@ -58,13 +60,15 @@ class DualHandTracker:
             base_options = mp_python.BaseOptions(model_asset_path=model_file)
             options = vision.HandLandmarkerOptions(
                 base_options=base_options,
+                running_mode=vision.RunningMode.VIDEO,
                 num_hands=num_hands,
                 min_hand_detection_confidence=min_hand_detection_confidence,
                 min_hand_presence_confidence=min_hand_presence_confidence,
                 min_tracking_confidence=min_tracking_confidence
             )
             self.detector = vision.HandLandmarker.create_from_options(options)
-            print("[AeroTouch Vision]: MediaPipe 3D HandLandmarker Engine ONLINE.")
+            self._video_mode = True
+            print("[AeroTouch Vision]: MediaPipe 3D HandLandmarker Engine ONLINE (VIDEO Temporal Tracking).")
         except Exception as e:
             print(f"[AeroTouch Vision]: Warning - Initializing in Fallback Mode: {e}")
 
@@ -161,12 +165,21 @@ class DualHandTracker:
         if self.detector is None:
             return None, None
 
+        import time as _time
         import mediapipe as mp
 
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
 
-        detection_result = self.detector.detect(mp_image)
+        if getattr(self, "_video_mode", False) and hasattr(self.detector, "detect_for_video"):
+            ts_ms = int(_time.perf_counter() * 1000)
+            last_ts = getattr(self, "_last_timestamp_ms", 0)
+            if ts_ms <= last_ts:
+                ts_ms = last_ts + 1
+            self._last_timestamp_ms = ts_ms
+            detection_result = self.detector.detect_for_video(mp_image, ts_ms)
+        else:
+            detection_result = self.detector.detect(mp_image)
 
         right_hand: Optional[HandLandmarks] = None
         left_hand: Optional[HandLandmarks] = None

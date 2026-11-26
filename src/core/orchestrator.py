@@ -495,14 +495,19 @@ class SpatialOrchestrator:
             # 1. Stage 1: Adaptive 1-Euro Filter (eliminates high-frequency hand tremor first)
             smooth_x, smooth_y = self.filter.filter(norm_x, norm_y, timestamp=timestamp)
 
-            # 2. Stage 2: Hybrid Predictive + Constant-Acceleration Kalman Filtering
-            pred_x, pred_y = self.predictive_filter.filter_and_predict(smooth_x, smooth_y, timestamp=timestamp)
-            kal_x, kal_y = self.kalman_filter.update(smooth_x, smooth_y, timestamp=timestamp)
-            fused_x = 0.5 * pred_x + 0.5 * kal_x
-            fused_y = 0.5 * pred_y + 0.5 * kal_y
+            # During click approach/tap (not drag-hold), bypass predictive overshoot & flick ballistics
+            # so downward index-finger motion never pulls the cursor off the target button.
+            if (action_state.get("approaching_pinch") or action_state.get("is_pinching")) and not action_state.get("is_pinch_holding"):
+                accel_x, accel_y = smooth_x, smooth_y
+            else:
+                # 2. Stage 2: Hybrid Predictive + Constant-Acceleration Kalman Filtering
+                pred_x, pred_y = self.predictive_filter.filter_and_predict(smooth_x, smooth_y, timestamp=timestamp)
+                kal_x, kal_y = self.kalman_filter.update(smooth_x, smooth_y, timestamp=timestamp)
+                fused_x = 0.5 * pred_x + 0.5 * kal_x
+                fused_y = 0.5 * pred_y + 0.5 * kal_y
 
-            # 3. Stage 3: Dynamic Pointer Ballistics (Sniper Precision Mode & Flick Acceleration)
-            accel_x, accel_y = self.ballistics.apply(fused_x, fused_y, timestamp=timestamp)
+                # 3. Stage 3: Dynamic Pointer Ballistics (Sniper Precision Mode & Flick Acceleration)
+                accel_x, accel_y = self.ballistics.apply(fused_x, fused_y, timestamp=timestamp)
 
             # 4. Dynamic Ergonomic Reach & Screen Space Mapping
             self.mapper.update_ergonomics(GestureMath.hand_scale(right_hand))

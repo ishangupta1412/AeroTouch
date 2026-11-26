@@ -277,6 +277,8 @@ class BimanualEngine:
 
         # Pinch-drift stabilization & pinch-hold drag state
         self._pinch_anchor: Optional[Tuple[float, float]] = None
+        self._last_stable_cursor: Optional[Tuple[float, float]] = None
+        self._prev_norm_pinch: Optional[float] = None
         self._pinch_start_time: float = 0.0
         self._is_pinch_holding: bool = False
         self._last_click_was_left: bool = False
@@ -404,20 +406,25 @@ class BimanualEngine:
                 self._is_pinch_holding = True
                 pinch_hold_event = "PINCH_DOWN"
 
-        # Pinch-Drift Stabilization: dampens downward index-tip pull during click approach
+        # Pinch-Drift Stabilization: lock cursor to pre-pinch position as soon as fingers close
+        closing_pinch = (
+            self._prev_norm_pinch is not None
+            and norm_pinch < (self._prev_norm_pinch - 0.025)
+            and norm_pinch < 0.65
+        )
+        self._prev_norm_pinch = norm_pinch
+
         approaching_pinch = (
-            (norm_pinch < self.pre_pinch_threshold or norm_middle_pinch < self.pre_pinch_threshold)
+            (norm_pinch < self.pre_pinch_threshold or norm_middle_pinch < self.pre_pinch_threshold or closing_pinch)
             and not self.is_fist_active
         )
-        if approaching_pinch and not self._is_pinch_holding:
+        if (approaching_pinch or self.is_pinching) and not self._is_pinch_holding:
             if self._pinch_anchor is None:
-                self._pinch_anchor = (raw_x, raw_y)
-            else:
-                ax, ay = self._pinch_anchor
-                raw_x = ax + (raw_x - ax) * 0.15
-                raw_y = ay + (raw_y - ay) * 0.15
+                self._pinch_anchor = self._last_stable_cursor if self._last_stable_cursor is not None else (raw_x, raw_y)
+            raw_x, raw_y = self._pinch_anchor
         elif not approaching_pinch and not self.is_pinching:
             self._pinch_anchor = None
+            self._last_stable_cursor = (raw_x, raw_y)
 
         # Two-Finger Scroll Detection
         is_scroll = False
@@ -438,6 +445,7 @@ class BimanualEngine:
             "middle_pinch_distance": norm_middle_pinch,
             "pinch_scalar": pinch_scalar,
             "is_pinching": self.is_pinching,
+            "approaching_pinch": approaching_pinch,
             "is_pinch_holding": self._is_pinch_holding,
             "pinch_hold_event": pinch_hold_event,
             "is_scroll": is_scroll,

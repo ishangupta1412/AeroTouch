@@ -52,7 +52,7 @@ def run_aerotouch(
     use_vision: bool = True,
     use_canvas: bool = True,
     use_voice: bool = True,
-    use_halo: bool = True,
+    use_halo: bool = False,
 ):
     print("=" * 65)
     print("      AEROTOUCH: AUTONOMOUS DUAL-HAND SPATIAL OPERATING LAYER     ")
@@ -537,6 +537,7 @@ Controls:
     use_vision = "--no-vision" not in args
     use_canvas = "--no-canvas" not in args
     use_voice = "--no-voice" not in args
+    use_halo = "--halo" in args
 
     cam_id = 0
     for a in args:
@@ -552,6 +553,7 @@ Controls:
         use_vision=use_vision,
         use_canvas=use_canvas,
         use_voice=use_voice,
+        use_halo=use_halo,
     )
 
 

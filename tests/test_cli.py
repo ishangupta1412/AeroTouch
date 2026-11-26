@@ -46,6 +46,7 @@ class TestCLIEntrypoint(unittest.TestCase):
             use_vision=False,
             use_canvas=True,
             use_voice=False,
+            use_halo=False,
         )
 
 

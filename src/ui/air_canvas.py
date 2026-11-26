@@ -138,6 +138,7 @@ class AirCanvasOverlay:
                 hwnd, GWL_EXSTYLE,
                 style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_LAYERED
             )
+            user32.SetLayeredWindowAttributes(hwnd, 0x00010101, 0, 1)  # LWA_COLORKEY = 1
         except Exception:
             pass
 
@@ -164,18 +165,16 @@ class AirCanvasOverlay:
             width=sw,
             height=sh,
             bg=BG_COLORKEY,
-            highlightthickness=0
+            highlightthickness=0,
+            bd=0,
         )
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         self.root.update_idletasks()
         try:
-            child = self.root.winfo_id()
             top = self._get_toplevel_hwnd()
             if top:
                 self._enable_click_through(top)
-            if child and child != top:
-                self._enable_click_through(child)
         except Exception:
             pass
 

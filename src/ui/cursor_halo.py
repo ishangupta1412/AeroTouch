@@ -82,6 +82,7 @@ class CursorHaloOverlay:
                 hwnd, GWL_EXSTYLE,
                 style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_LAYERED
             )
+            user32.SetLayeredWindowAttributes(hwnd, 0x00010101, 0, 1)  # LWA_COLORKEY = 1
         except Exception:
             pass
 
@@ -103,6 +104,7 @@ class CursorHaloOverlay:
             height=self.size,
             bg=BG_COLORKEY,
             highlightthickness=0,
+            bd=0,
         )
         self.canvas.pack()
         self.root.update_idletasks()
@@ -110,8 +112,6 @@ class CursorHaloOverlay:
             child = self.root.winfo_id()
             top = ctypes.windll.user32.GetParent(child) or child
             self._enable_click_through(top)
-            if child != top:
-                self._enable_click_through(child)
         except Exception:
             pass
 

@@ -143,7 +143,7 @@ class DynamicIslandOverlay:
             pass
 
     def _enable_click_through(self, hwnd: int):
-        """Enforces Win32 click-through transparency."""
+        """Enforces Win32 click-through transparency on top-level layered window."""
         try:
             user32 = ctypes.windll.user32
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
@@ -151,6 +151,9 @@ class DynamicIslandOverlay:
                 hwnd, GWL_EXSTYLE,
                 style | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_LAYERED
             )
+            # Re-assert colorkey layered attribute on the top-level OS window
+            # BG_COLORKEY is "#010101" -> 0x00010101 in COLORREF (0x00BBGGRR)
+            user32.SetLayeredWindowAttributes(hwnd, 0x00010101, 0, 1)  # LWA_COLORKEY = 1
         except Exception:
             pass
 
@@ -177,7 +180,8 @@ class DynamicIslandOverlay:
             width=max_canvas_w,
             height=max_canvas_h,
             bg=BG_COLORKEY,
-            highlightthickness=0
+            highlightthickness=0,
+            bd=0,
         )
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
@@ -185,9 +189,9 @@ class DynamicIslandOverlay:
         try:
             child = self.root.winfo_id()
             top = ctypes.windll.user32.GetParent(child) or child
+            # Apply click-through and colorkey ONLY to the top-level OS window
+            # Never apply to child, which breaks GDI colorkey transparency in Windows DWM
             self._enable_click_through(top)
-            if child != top:
-                self._enable_click_through(child)
         except Exception:
             pass
 

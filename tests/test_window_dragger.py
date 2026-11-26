@@ -56,15 +56,29 @@ class TestWindowDragger(unittest.TestCase):
         for pip in [6, 10, 14, 18]:
             points[pip] = (0.5, 0.5, 0.0)
 
-        # Tips (4, 8, 12, 16, 20) are curled inwards toward palm/wrist
-        for tip in [4, 8, 12, 16, 20]:
+        # Tips (8, 12, 16, 20) are curled inwards toward palm/wrist
+        for tip in [8, 12, 16, 20]:
             points[tip] = (0.5, 0.65, 0.0)
+        # Thumb tip (4) tucked alongside palm, NOT pinched onto index tip (8)
+        points[4] = (0.43, 0.72, 0.0)
 
         return HandLandmarks(points=points, handedness=handedness)
 
     def test_fist_math_detection(self):
         fist_hand = self._make_fist_hand()
         self.assertTrue(GestureMath.is_fist(fist_hand))
+
+    def test_slight_curl_never_triggers_fist(self):
+        """A relaxed or slightly curled hand MUST NOT trigger a fist."""
+        fist_hand = self._make_fist_hand()
+        pts = list(fist_hand.points)
+        # Tips slightly further from wrist than PIP (relaxed/slight curl: d_tip ~ 1.10 * d_pip)
+        # Wrist is (0.5, 0.8), PIP is (0.5, 0.5) -> d_pip = 0.30.
+        # Set tips at (0.5, 0.47) -> d_tip = 0.33 = 1.10 * d_pip (> 1.02 * d_pip)
+        for tip in [8, 12, 16, 20]:
+            pts[tip] = (0.5, 0.47, 0.0)
+        slightly_curled = HandLandmarks(points=pts, handedness="Right")
+        self.assertFalse(GestureMath.is_fist(slightly_curled))
 
     def test_pointing_hand_never_classified_as_fist(self):
         """Pointing (index extended) must NEVER trigger a fist or window drag."""
@@ -104,8 +118,9 @@ class TestWindowDragger(unittest.TestCase):
         points_open[9] = (0.5, 0.5, 0.0)
         for pip in [6, 10, 14, 18]:
             points_open[pip] = (0.5, 0.4, 0.0)
-        for tip in [4, 8, 12, 16, 20]:
+        for tip in [8, 12, 16, 20]:
             points_open[tip] = (0.5, 0.1, 0.0)  # Fully extended
+        points_open[4] = (0.35, 0.45, 0.0)      # Thumb spread open away from index tip
         open_hand = HandLandmarks(points=points_open, handedness="Right")
 
         orchestrator.process_spatial_frame(open_hand, None, timestamp=1.1)

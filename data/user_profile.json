@@ -1,6 +1,6 @@
 {
-  "pinch_threshold": 0.32,
-  "release_threshold": 0.42,
+  "pinch_threshold": 0.36,
+  "release_threshold": 0.46,
   "debounce_seconds": 0.15,
   "confirm_frames": 2,
   "deadband": 0.002,

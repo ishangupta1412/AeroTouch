@@ -63,9 +63,9 @@ class SpatialOrchestrator:
             deadband=profile.get("deadband", 0.0025)        # ~4.8px noise gate suppresses tremor
         )
         self.engine = BimanualEngine(
-            pinch_threshold=profile.get("pinch_threshold", 0.28),     # Deliberate pinch only
-            release_threshold=profile.get("release_threshold", 0.38), # Wide hysteresis gap
-            debounce_seconds=profile.get("debounce_seconds", 0.20),   # 200ms debounce
+            pinch_threshold=profile.get("pinch_threshold", 0.36),     # Ergonomic & responsive pinch
+            release_threshold=profile.get("release_threshold", 0.46), # Wide hysteresis gap
+            debounce_seconds=profile.get("debounce_seconds", 0.15),   # 150ms debounce
             confirm_frames=int(profile.get("confirm_frames", 2))      # Multi-frame confirmation
         )
 
@@ -217,8 +217,8 @@ class SpatialOrchestrator:
             "min_cutoff": 0.05,
             "beta": 1.8,
             "deadband": 0.0020,
-            "pinch_threshold": 0.32,
-            "release_threshold": 0.42,
+            "pinch_threshold": 0.36,
+            "release_threshold": 0.46,
             "debounce_seconds": 0.15,
             "confirm_frames": 2,
             "shaka_frames": 35

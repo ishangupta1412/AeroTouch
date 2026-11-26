@@ -104,14 +104,42 @@ class GestureMath:
     @classmethod
     def is_fist(cls, hand: HandLandmarks) -> bool:
         """
-        Returns True ONLY when ALL 4 fingers are curled into the palm.
-        A pointing gesture (index extended) must NEVER be classified as a fist.
-        Fist = Index (8), Middle (12), Ring (16), AND Pinky (20) all curled.
+        Returns True ONLY when all 4 fingers (Index, Middle, Ring, Pinky) are deeply curled.
+        A slight finger curl, pointing gesture, or pinch MUST NEVER trigger a fist.
+        In a true fist, all fingertips curl inward so tip is strictly closer or equal to wrist compared to PIP.
         """
         for tip, pip in [(8, 6), (12, 10), (16, 14), (20, 18)]:
-            if cls.is_finger_extended(hand, tip, pip):
+            d_tip = cls.euclidean_dist(hand.wrist, hand.points[tip])
+            d_pip = cls.euclidean_dist(hand.wrist, hand.points[pip])
+            if d_tip > d_pip * 1.02:
                 return False
         return True
+
+    @classmethod
+    def is_peace_sign(cls, hand: HandLandmarks) -> bool:
+        """
+        Detects ✌️ Peace Sign ('V'):
+        Index (8) and Middle (12) extended.
+        Ring (16) and Pinky (20) curled.
+        """
+        index_ext = cls.is_finger_extended(hand, tip_idx=8, pip_idx=6)
+        middle_ext = cls.is_finger_extended(hand, tip_idx=12, pip_idx=10)
+        ring_ext = cls.is_finger_extended(hand, tip_idx=16, pip_idx=14)
+        pinky_ext = cls.is_finger_extended(hand, tip_idx=20, pip_idx=18)
+        return index_ext and middle_ext and not ring_ext and not pinky_ext
+
+    @classmethod
+    def is_three_fingers(cls, hand: HandLandmarks) -> bool:
+        """
+        Detects 3 fingers extended:
+        Index (8), Middle (12), and Ring (16) extended.
+        Pinky (20) curled.
+        """
+        index_ext = cls.is_finger_extended(hand, tip_idx=8, pip_idx=6)
+        middle_ext = cls.is_finger_extended(hand, tip_idx=12, pip_idx=10)
+        ring_ext = cls.is_finger_extended(hand, tip_idx=16, pip_idx=14)
+        pinky_ext = cls.is_finger_extended(hand, tip_idx=20, pip_idx=18)
+        return index_ext and middle_ext and ring_ext and not pinky_ext
 
     @classmethod
     def is_shaka(cls, hand: HandLandmarks) -> bool:
@@ -218,11 +246,11 @@ class BimanualEngine:
 
     def __init__(
         self,
-        pinch_threshold: float = 0.32,
-        release_threshold: float = 0.42,
+        pinch_threshold: float = 0.36,
+        release_threshold: float = 0.46,
         debounce_seconds: float = 0.15,
         confirm_frames: int = 2,
-        pre_pinch_threshold: float = 0.46,
+        pre_pinch_threshold: float = 0.50,
         hold_threshold_seconds: float = 0.24,
     ):
         self.pinch_threshold = pinch_threshold
@@ -256,13 +284,11 @@ class BimanualEngine:
             self.current_left_mode = HandMode.POINTER_NAV
             return self.current_left_mode
 
-        extended = GestureMath.count_extended_fingers(left_hand)
-
-        if extended == 0:
+        if GestureMath.is_fist(left_hand):
             self.current_left_mode = HandMode.WINDOW_SNAP
-        elif extended == 2:
+        elif GestureMath.is_peace_sign(left_hand):
             self.current_left_mode = HandMode.MEDIA_CONTROL
-        elif extended == 3:
+        elif GestureMath.is_three_fingers(left_hand):
             self.current_left_mode = HandMode.DESKTOP_SWITCH
         else:
             self.current_left_mode = HandMode.POINTER_NAV
@@ -290,6 +316,14 @@ class BimanualEngine:
 
         # Fist Detection State Machine
         raw_is_fist = GestureMath.is_fist(right_hand)
+
+        # Critical: If the user is actively pinching (Index + Thumb), it is a click intent —
+        # override any false fist trigger so clicking is NEVER blocked!
+        if norm_pinch < self.pinch_threshold:
+            raw_is_fist = False
+            self.is_fist_active = False
+            self.fist_streak = 0
+
         if raw_is_fist:
             self.fist_streak += 1
             self.fist_release_streak = 0
@@ -299,7 +333,7 @@ class BimanualEngine:
         else:
             self.fist_release_streak += 1
             self.fist_streak = 0
-            if self.fist_release_streak >= self._fist_confirm_frames and self.is_fist_active:
+            if self.fist_release_streak >= 2 and self.is_fist_active:
                 self.is_fist_active = False
                 fist_event = "DRAG_END"
 

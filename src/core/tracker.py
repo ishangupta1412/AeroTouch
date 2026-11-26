@@ -186,6 +186,7 @@ class DualHandTracker:
 
         if detection_result.hand_landmarks and detection_result.handedness:
             num_detected = len(detection_result.hand_landmarks)
+            is_mirrored = getattr(self, "mirrored", True)
 
             if num_detected == 1:
                 # Single hand detected
@@ -197,7 +198,6 @@ class DualHandTracker:
 
                 label = self._verify_anatomical_handedness(pts, raw_label, score=score)
                 hand_obj = HandLandmarks(points=pts, handedness=label)
-
                 if label == "Right":
                     right_hand = hand_obj
                     left_hand = None
@@ -206,45 +206,37 @@ class DualHandTracker:
                     left_hand = hand_obj
 
             elif num_detected >= 2:
-                # Dual-hand tracking (or multi-hand)
-                # Extract points and metadata for the first two detections
-                detected_hands = []
-                for idx, landmarks in enumerate(detection_result.hand_landmarks[:2]):
-                    pts = [(lm.x, lm.y, lm.z) for lm in landmarks]
-                    raw_cat = detection_result.handedness[idx][0]
-                    raw_label = raw_cat.category_name
-                    score = getattr(raw_cat, "score", 1.0)
-                    wrist_x = pts[0][0]
-                    verified_label = self._verify_anatomical_handedness(pts, raw_label, score=score)
-                    detected_hands.append({
-                        "pts": pts,
-                        "label": verified_label,
-                        "raw_label": raw_label,
-                        "score": score,
-                        "wrist_x": wrist_x
-                    })
+                # Dual-hand tracking:
+                # 1. Verify each hand anatomically (handles palm/back flip & mirror correction)
+                # 2. If MediaPipe emits duplicate labels ([Right, Right] or [Left, Left]),
+                #    resolve deterministically by spatial position on screen.
+                pts0 = [(lm.x, lm.y, lm.z) for lm in detection_result.hand_landmarks[0]]
+                pts1 = [(lm.x, lm.y, lm.z) for lm in detection_result.hand_landmarks[1]]
+                cat0 = detection_result.handedness[0][0]
+                cat1 = detection_result.handedness[1][0]
 
-                h0 = detected_hands[0]
-                h1 = detected_hands[1]
+                label0 = self._verify_anatomical_handedness(
+                    pts0, cat0.category_name, score=getattr(cat0, "score", 1.0)
+                )
+                label1 = self._verify_anatomical_handedness(
+                    pts1, cat1.category_name, score=getattr(cat1, "score", 1.0)
+                )
 
-                # Case 1: Verified distinct Right and Left with good confidence
-                if h0["label"] != h1["label"] and h0["score"] >= 0.65 and h1["score"] >= 0.65:
-                    if h0["label"] == "Right":
-                        right_hand = HandLandmarks(points=h0["pts"], handedness="Right")
-                        left_hand = HandLandmarks(points=h1["pts"], handedness="Left")
+                if label0 != label1:
+                    if label0 == "Right":
+                        right_pts, left_pts = pts0, pts1
                     else:
-                        right_hand = HandLandmarks(points=h1["pts"], handedness="Right")
-                        left_hand = HandLandmarks(points=h0["pts"], handedness="Left")
+                        right_pts, left_pts = pts1, pts0
                 else:
-                    # Case 2: Ambiguous or duplicate labels -> disambiguate using horizontal position:
-                    # Hand on screen right (larger wrist_x) is user's Right hand (pointer)
-                    # Hand on screen left (smaller wrist_x) is user's Left hand (modifier)
-                    if h0["wrist_x"] >= h1["wrist_x"]:
-                        right_hand = HandLandmarks(points=h0["pts"], handedness="Right")
-                        left_hand = HandLandmarks(points=h1["pts"], handedness="Left")
+                    wrist_x0 = pts0[0][0]
+                    wrist_x1 = pts1[0][0]
+                    if is_mirrored:
+                        right_pts, left_pts = (pts0, pts1) if wrist_x0 >= wrist_x1 else (pts1, pts0)
                     else:
-                        right_hand = HandLandmarks(points=h1["pts"], handedness="Right")
-                        left_hand = HandLandmarks(points=h0["pts"], handedness="Left")
+                        right_pts, left_pts = (pts0, pts1) if wrist_x0 <= wrist_x1 else (pts1, pts0)
+
+                right_hand = HandLandmarks(points=right_pts, handedness="Right")
+                left_hand = HandLandmarks(points=left_pts, handedness="Left")
 
         return right_hand, left_hand
 

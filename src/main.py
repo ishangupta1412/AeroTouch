@@ -36,9 +36,11 @@ from src.ui.hud import SpatialHUD
 from src.ui.dynamic_island import DynamicIslandOverlay
 from src.ui.tray import AeroTouchTrayDaemon
 from src.ui.air_canvas import AirCanvasOverlay
+from src.ui.cursor_halo import CursorHaloOverlay
 from src.service.voice_intent import VoiceIntentService
 from src.cortex.vision_analyst import RollingVisionAnalyst
 from src.core.night_vision import AdaptiveNightVisionEnhancer
+from src.core.async_capture import AsyncCameraCapture
 
 
 def run_aerotouch(
@@ -49,7 +51,8 @@ def run_aerotouch(
     use_tray: bool = False,
     use_vision: bool = True,
     use_canvas: bool = True,
-    use_voice: bool = True
+    use_voice: bool = True,
+    use_halo: bool = True,
 ):
     print("=" * 65)
     print("      AEROTOUCH: AUTONOMOUS DUAL-HAND SPATIAL OPERATING LAYER     ")
@@ -186,6 +189,16 @@ def run_aerotouch(
         air_canvas.start()
         orchestrator.attach_air_canvas(air_canvas)
 
+    # ── Morphing Cursor Halo Overlay (visionOS Pointer Feedback) ────────
+    cursor_halo: Optional[CursorHaloOverlay] = None
+    if use_halo:
+        cursor_halo = CursorHaloOverlay()
+        cursor_halo.start()
+
+    # ── Lock-Free Async Camera Capture Producer ─────────────────────────
+    async_cap = AsyncCameraCapture(cap)
+    async_cap.start()
+
     # ── Multimodal Voice + Spatial Intent Service ───────────────────────
     voice_service: Optional[VoiceIntentService] = None
     if use_voice:
@@ -215,6 +228,7 @@ def run_aerotouch(
     print("  * Press 'c': Toggle In-Air Drawing Mode (Neon Fading Ink)")
     print("  * Press 'x': Clear All AirCanvas Annotations")
     print("  * Press 'g': Instant Toggle Game Mode (Subway Surfers, etc.)")
+    print("  * Press 't': Toggle Absolute Laser vs Relative Desk/Lap Trackpad Mode")
     print("  * Voice Commands: 'copy', 'paste', 'close', 'maximize', 'screenshot', 'laser', 'draw', 'clear', 'pause', 'game mode', 'subway surfers'")
     print("  * Press 'r': Toggle Live Gesture Stream Recording (Dataset Generator)\n")
 
@@ -226,14 +240,10 @@ def run_aerotouch(
 
     try:
         while not exit_requested:
-            try:
-                ret, frame = cap.read()
-            except (cv2.error, Exception):
-                time.sleep(0.01)
-                continue
+            ret, frame, _cap_ts = async_cap.read_latest(timeout=0.05)
 
             if not ret or frame is None or getattr(frame, "size", 0) == 0:
-                time.sleep(0.005)
+                time.sleep(0.002)
                 continue
 
             # Guard against corrupt-stride frames (cv2 -215 _step>=minstep assertion)
@@ -258,9 +268,22 @@ def run_aerotouch(
 
             now = time.perf_counter()
             right_hand, left_hand = tracker.process_frame(frame)
+            if orchestrator.gaze_tracker.available:
+                orchestrator.gaze_tracker.process_frame(frame)
 
             # Process full spatial frame
             result = orchestrator.process_spatial_frame(right_hand, left_hand, timestamp=now)
+
+            if cursor_halo:
+                cpos = result.get("cursor_pos")
+                act_st = result.get("action_state") or {}
+                is_pinch_visual = bool(act_st.get("is_pinching") or act_st.get("is_pinch_holding"))
+                cursor_halo.update_pointer(
+                    cpos[0] if cpos else None,
+                    cpos[1] if cpos else None,
+                    locked=bool(result.get("magnetic_lock")),
+                    pinching=is_pinch_visual,
+                )
 
             # Record telemetry for background Qwen kinematic self-tuning
             telemetry.log_frame(
@@ -342,6 +365,9 @@ def run_aerotouch(
                     is_gaming = orchestrator.game_engine.toggle(orchestrator.kernel)
                     st = "ACTIVE 🎮" if is_gaming else "OFF"
                     print(f"\n[AeroTouch Gaming]: Game Mode {st} (Profile: {orchestrator.game_engine.active_profile_id})")
+                elif key == ord('t'):
+                    new_paradigm = orchestrator.toggle_tracking_paradigm()
+                    print(f"\n[AeroTouch Ergonomics]: Tracking Paradigm -> {new_paradigm.name}")
                 elif key == ord('n'):
                     next_id = orchestrator.game_engine.cycle_next_profile(orchestrator.kernel)
                     p_obj = orchestrator.game_engine.get_profile(next_id)
@@ -382,6 +408,19 @@ def run_aerotouch(
             orchestrator.stop_hermite_driver()
         except Exception:
             pass
+        try:
+            orchestrator.gaze_tracker.close()
+        except Exception:
+            pass
+        try:
+            async_cap.stop()
+        except Exception:
+            pass
+        if cursor_halo:
+            try:
+                cursor_halo.stop()
+            except Exception:
+                pass
         if tray:
             try:
                 tray.stop()

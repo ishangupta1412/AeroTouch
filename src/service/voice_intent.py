@@ -72,11 +72,45 @@ class VoiceIntentService:
         self._recognizer = None
         self._microphone = None
         self._has_sr: bool = False
+        self._whisper_model = None
+        self._whisper_checked: bool = False
 
         self.last_recognized: Optional[str] = None
         self.last_intent: Optional[str] = None
 
         self._init_engine()
+
+    def _ensure_whisper(self):
+        if self._whisper_checked:
+            return
+        self._whisper_checked = True
+        try:
+            from faster_whisper import WhisperModel  # type: ignore
+            # Only load locally cached model instantaneously (never block startup downloading)
+            self._whisper_model = WhisperModel("tiny.en", device="cpu", compute_type="int8", local_files_only=True)
+            logger.info("[VoiceIntent]: Offline faster-whisper (tiny.en int8) engine ready.")
+        except Exception:
+            self._whisper_model = None
+
+    def _transcribe_audio(self, audio) -> Optional[str]:
+        """Transcribes SpeechRecognition AudioData via offline faster-whisper first, else Google Speech."""
+        self._ensure_whisper()
+        if self._whisper_model is not None:
+            try:
+                import numpy as np
+                pcm = audio.get_raw_data(convert_rate=16000, convert_width=2)
+                samples = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+                segments, _ = self._whisper_model.transcribe(samples, beam_size=1, vad_filter=True)
+                text = " ".join(seg.text for seg in segments).strip().lower()
+                if text:
+                    return text
+            except Exception:
+                pass
+
+        try:
+            return self._recognizer.recognize_google(audio).lower()
+        except Exception:
+            return None
 
     def _init_engine(self):
         try:
@@ -142,18 +176,13 @@ class VoiceIntentService:
                 if not self.running:
                     break
 
-                try:
-                    # Google Web Speech API (free tier, built into speech_recognition)
-                    text = self._recognizer.recognize_google(audio).lower()
+                text = self._transcribe_audio(audio)
+                if text:
                     self.last_recognized = text
                     intent = self.parse_command(text)
                     if intent:
                         logger.info(f"[VoiceIntent]: Heard '{text}' -> Triggering {intent}")
                         self.dispatch_intent(intent)
-                except sr.UnknownValueError:
-                    pass
-                except sr.RequestError:
-                    time.sleep(1.0)
 
             except Exception:
                 time.sleep(0.5)

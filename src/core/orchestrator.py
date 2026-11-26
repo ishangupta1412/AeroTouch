@@ -24,6 +24,9 @@ from src.gestures.few_shot_engine import FewShotGestureEngine
 from src.games.engine import GameEngine
 from src.core.engagement import EngagementGatingEngine, TrackingParadigm
 from src.core.predictive_filter import PredictiveKinematicFilter
+from src.core.kalman_filter import ConstantAccelerationKalman2D
+from src.core.gaze_tracker import GazeHybridTracker
+from src.gestures.micro_classifier import MicroGestureClassifier
 from src.service.audio_haptics import AudioHapticsEngine, HapticCue
 from src.os_bridge.ui_magnetism import UIMagnetismEngine
 from src.core.app_presets import AppPresetEngine
@@ -42,11 +45,18 @@ class SpatialOrchestrator:
     def __init__(self, profile_path: Optional[str] = None):
         self.kernel = Win32KernelBridge()
         screen_w, screen_h = self.kernel.get_screen_resolution()
+        vx, vy, vw, vh = 0, 0, screen_w, screen_h
+        try:
+            bounds = self.kernel.get_virtual_screen_bounds()
+            if isinstance(bounds, tuple) and len(bounds) == 4 and bounds[2] > 0 and bounds[3] > 0:
+                vx, vy, vw, vh = bounds
+        except Exception:
+            pass
 
         # Load adaptive profile if present
         profile = self._load_profile(profile_path)
 
-        self.mapper = ScreenSpaceMapper(screen_width=screen_w, screen_height=screen_h)
+        self.mapper = ScreenSpaceMapper(screen_width=vw, screen_height=vh, origin_x=vx, origin_y=vy)
         self.filter = PrecisionSpatialFilter2D(
             min_cutoff=profile.get("min_cutoff", 0.05),    # Rock-solid stillness at rest
             beta=profile.get("beta", 0.015),                # Velocity response for sweeps
@@ -84,10 +94,15 @@ class SpatialOrchestrator:
 
         # Peak Spatial Computing Engines
         self.engagement_engine = EngagementGatingEngine()
+        self.use_engagement_gating: bool = False
         self.predictive_filter = PredictiveKinematicFilter()
+        self.kalman_filter = ConstantAccelerationKalman2D()
+        self.gaze_tracker = GazeHybridTracker(enabled=True)
+        self.ml_classifier = MicroGestureClassifier()
         self.haptics = AudioHapticsEngine()
         self.magnetism = UIMagnetismEngine()
         self.app_presets = AppPresetEngine()
+        self._last_preset_refresh_time: float = 0.0
         self._last_locked_ui_target: Optional[str] = None
 
         # World-Class Biomechanical IK & 1000 Hz Spline Engines
@@ -140,10 +155,22 @@ class SpatialOrchestrator:
                 pass
         self._hermite_thread = None
 
+    def toggle_tracking_paradigm(self) -> TrackingParadigm:
+        """Toggles between 1:1 Absolute Laser mode and Relative Desk/Lap Trackpad mode."""
+        new_mode = (
+            TrackingParadigm.RELATIVE_CLUTCHED
+            if self.engagement_engine.current_paradigm == TrackingParadigm.ABSOLUTE_LASER
+            else TrackingParadigm.ABSOLUTE_LASER
+        )
+        self.engagement_engine.set_paradigm(new_mode)
+        self.use_engagement_gating = (new_mode == TrackingParadigm.RELATIVE_CLUTCHED)
+        return new_mode
+
     def recalibrate(self) -> None:
         """Resets all spatial filters, pointer ballistics, and dragging states."""
         self.filter.reset()
         self.predictive_filter.reset()
+        self.kalman_filter.reset()
         self.ik_solver_right.reset()
         self.ik_solver_left.reset()
         self.hermite_spline.reset()
@@ -427,19 +454,49 @@ class SpatialOrchestrator:
 
         # Step 2: Right-hand execution
         if right_hand is not None:
+            # Optional Palm-Normal Midas-Touch Gating (active in Relative Trackpad Mode or when enabled)
+            if self.use_engagement_gating:
+                engaged, eng_conf = self.engagement_engine.evaluate_engagement(right_hand)
+                if not engaged:
+                    result_summary["mode"] = "DISENGAGED"
+                    return result_summary
+
+            # Refresh active application preset periodically (~0.5s)
+            if (timestamp - self._last_preset_refresh_time) > 0.5:
+                try:
+                    self.app_presets.update_active_window()
+                except Exception:
+                    pass
+                self._last_preset_refresh_time = timestamp
+            active_preset = self.app_presets.get_active_preset()
+
             action_state = self.engine.evaluate_right_action(right_hand, now=timestamp)
             result_summary["action_state"] = action_state
             norm_x = action_state["cursor_x"]
             norm_y = action_state["cursor_y"]
 
+            # Relative Desk/Lap Trackpad Mode (delta wrist/finger clutching)
+            if self.engagement_engine.current_paradigm == TrackingParadigm.RELATIVE_CLUTCHED:
+                dx_rel, dy_rel = self.engagement_engine.compute_relative_delta(right_hand)
+                sens = active_preset.pointer_sensitivity
+                norm_x = max(0.0, min(1.0, self.ballistics.cursor_x + dx_rel * sens))
+                norm_y = max(0.0, min(1.0, self.ballistics.cursor_y + dy_rel * sens))
+
+            # Optional Gaze + Hand Hybrid Coarse Assist ("Look + Pinch")
+            if self.gaze_tracker.available:
+                norm_x, norm_y = self.gaze_tracker.blend_with_hand(norm_x, norm_y)
+
             # 1. Stage 1: Adaptive 1-Euro Filter (eliminates high-frequency hand tremor first)
             smooth_x, smooth_y = self.filter.filter(norm_x, norm_y, timestamp=timestamp)
 
-            # 2. Stage 2: Forward-Predictive Latency Extrapolation (cancels ~35ms USB lag)
+            # 2. Stage 2: Hybrid Predictive + Constant-Acceleration Kalman Filtering
             pred_x, pred_y = self.predictive_filter.filter_and_predict(smooth_x, smooth_y, timestamp=timestamp)
+            kal_x, kal_y = self.kalman_filter.update(smooth_x, smooth_y, timestamp=timestamp)
+            fused_x = 0.5 * pred_x + 0.5 * kal_x
+            fused_y = 0.5 * pred_y + 0.5 * kal_y
 
             # 3. Stage 3: Dynamic Pointer Ballistics (Sniper Precision Mode & Flick Acceleration)
-            accel_x, accel_y = self.ballistics.apply(pred_x, pred_y, timestamp=timestamp)
+            accel_x, accel_y = self.ballistics.apply(fused_x, fused_y, timestamp=timestamp)
 
             # 4. Dynamic Ergonomic Reach & Screen Space Mapping
             self.mapper.update_ergonomics(GestureMath.hand_scale(right_hand))
@@ -465,14 +522,25 @@ class SpatialOrchestrator:
             self.hermite_spline.add_waypoint(screen_x, screen_y, timestamp=timestamp)
             self._hermite_last_waypoint_time = timestamp
 
+            # Sub-millisecond ML Gesture Classification telemetry
+            try:
+                ml_cls, ml_conf = self.ml_classifier.predict(right_hand.points)
+                result_summary["ml_gesture"] = ml_cls
+                result_summary["ml_confidence"] = round(float(ml_conf), 3)
+            except Exception:
+                pass
+
             result_summary["cursor_pos"] = (screen_x, screen_y)
             result_summary["magnetic_lock"] = locked_target
-            result_summary["app_preset"] = self.app_presets.get_active_preset().name
+            result_summary["app_preset"] = active_preset.name
 
-            # Two-Finger Kinetic Scroll with Momentum Decay
+            # Two-Finger Kinetic Scroll with Momentum Decay + App Preset Multiplier
             is_scroll = action_state.get("is_scroll", False)
             scroll_y = action_state.get("scroll_y", norm_y)
             scroll_steps = self.scroll_ctrl.update(is_scroll, scroll_y, timestamp=timestamp)
+            if scroll_steps != 0 and active_preset.scroll_multiplier != 1.0:
+                scaled = int(round(scroll_steps * active_preset.scroll_multiplier))
+                scroll_steps = scaled if scaled != 0 else scroll_steps
 
             if is_scroll:
                 if scroll_steps != 0:

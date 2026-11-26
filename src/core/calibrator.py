@@ -152,10 +152,14 @@ class ScreenSpaceMapper:
         screen_height: int,
         margin_x: float = 0.15,  # 15% boundary margin for effortless reach
         margin_y: float = 0.18,
-        flip_x: bool = False     # False: webcam frame is mirrored at capture, so norm_x is natural
+        flip_x: bool = False,    # False: webcam frame is mirrored at capture, so norm_x is natural
+        origin_x: int = 0,
+        origin_y: int = 0,
     ):
         self.screen_width = screen_width
         self.screen_height = screen_height
+        self.origin_x = origin_x
+        self.origin_y = origin_y
         self.base_margin_x = margin_x
         self.base_margin_y = margin_y
         self.margin_x = margin_x
@@ -196,8 +200,8 @@ class ScreenSpaceMapper:
         clamped_x = max(0.0, min(1.0, (px - min_x) / (max_x - min_x)))
         clamped_y = max(0.0, min(1.0, (py - min_y) / (max_y - min_y)))
 
-        # Convert to screen integer coordinates
-        screen_x = int(clamped_x * (self.screen_width - 1))
-        screen_y = int(clamped_y * (self.screen_height - 1))
+        # Convert to screen integer coordinates (supports multi-monitor virtual desktop origin)
+        screen_x = self.origin_x + int(clamped_x * (self.screen_width - 1))
+        screen_y = self.origin_y + int(clamped_y * (self.screen_height - 1))
 
         return screen_x, screen_y

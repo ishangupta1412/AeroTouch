@@ -83,6 +83,22 @@ class Win32KernelBridge:
     def get_screen_resolution(self) -> Tuple[int, int]:
         return self.screen_width, self.screen_height
 
+    def get_virtual_screen_bounds(self) -> Tuple[int, int, int, int]:
+        """
+        Returns (origin_x, origin_y, total_width, total_height) across all connected monitors.
+        Falls back cleanly to primary monitor bounds if virtual metrics are unavailable.
+        """
+        try:
+            vx = int(self.user32.GetSystemMetrics(76))   # SM_XVIRTUALSCREEN
+            vy = int(self.user32.GetSystemMetrics(77))   # SM_YVIRTUALSCREEN
+            vw = int(self.user32.GetSystemMetrics(78))   # SM_CXVIRTUALSCREEN
+            vh = int(self.user32.GetSystemMetrics(79))   # SM_CYVIRTUALSCREEN
+            if vw > 0 and vh > 0:
+                return vx, vy, vw, vh
+        except Exception:
+            pass
+        return 0, 0, self.screen_width, self.screen_height
+
     def move_cursor(self, screen_x: int, screen_y: int) -> None:
         """
         Directly sets cursor position via SetCursorPos (0 latency).
@@ -177,7 +193,7 @@ class Win32KernelBridge:
             cls_buf = ctypes.create_unicode_buffer(256)
             self.user32.GetClassNameW(hwnd, cls_buf, 256)
             cls_name = cls_buf.value
-            if any(k in title for k in ["Dynamic Island", "Floating Orb", "AirCanvas", "AeroTouchTrayWindow"]):
+            if any(k in title for k in ["Dynamic Island", "Floating Orb", "AirCanvas", "Cursor Halo", "AeroTouchTrayWindow"]):
                 return False
             if cls_name in ["Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "TkTopLevel"]:
                 return False

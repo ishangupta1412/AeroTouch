@@ -27,13 +27,13 @@ ANALYST_SYSTEM_PROMPT = (
     "adapt to this specific user's hand geometry.\n\n"
     "Return ONLY valid JSON with this schema (omit fields that don't need changes):\n"
     "{\n"
-    '  "pinch_threshold": float (0.15-0.40),\n'
-    '  "release_threshold": float (0.30-0.50),\n'
+    '  "pinch_threshold": float (0.20-0.42),\n'
+    '  "release_threshold": float (0.32-0.55),\n'
     '  "debounce_seconds": float (0.10-0.40),\n'
     '  "confirm_frames": int (1-4),\n'
     '  "deadband": float (0.001-0.008),\n'
     '  "min_cutoff": float (0.02-0.15),\n'
-    '  "beta": float (0.005-0.05),\n'
+    '  "beta": float (0.5-3.0),\n'
     '  "reasoning": "Brief explanation of why these changes help"\n'
     "}\n\n"
     "Rules:\n"
@@ -72,13 +72,13 @@ class SessionAnalyst:
     def load_user_profile(self) -> Dict[str, Any]:
         """Loads the current user profile (learned thresholds) or returns defaults."""
         defaults = {
-            "pinch_threshold": 0.28,
-            "release_threshold": 0.38,
-            "debounce_seconds": 0.20,
+            "pinch_threshold": 0.36,
+            "release_threshold": 0.46,
+            "debounce_seconds": 0.15,
             "confirm_frames": 2,
-            "deadband": 0.0025,
+            "deadband": 0.0020,
             "min_cutoff": 0.05,
-            "beta": 0.015,
+            "beta": 1.8,
             "sessions_analyzed": 0,
             "last_updated": None
         }
@@ -270,13 +270,13 @@ class SessionAnalyst:
     def _apply_recommendations(self, profile: Dict[str, Any], recs: Dict[str, Any]) -> Dict[str, Any]:
         """Applies Qwen's recommended parameter changes with safety clamping."""
         bounds = {
-            "pinch_threshold": (0.15, 0.40),
-            "release_threshold": (0.30, 0.50),
+            "pinch_threshold": (0.20, 0.42),
+            "release_threshold": (0.32, 0.55),
             "debounce_seconds": (0.10, 0.40),
             "confirm_frames": (1, 4),
             "deadband": (0.001, 0.008),
             "min_cutoff": (0.02, 0.15),
-            "beta": (0.005, 0.05),
+            "beta": (0.5, 3.0),
         }
 
         for key, (lo, hi) in bounds.items():

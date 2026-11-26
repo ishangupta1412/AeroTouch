@@ -46,7 +46,7 @@ class TestTelemetryAndAnalyst(unittest.TestCase):
 
     def test_analyst_profile_load_save(self):
         profile = self.analyst.load_user_profile()
-        self.assertEqual(profile["pinch_threshold"], 0.28)
+        self.assertEqual(profile["pinch_threshold"], 0.36)
         self.assertEqual(profile["confirm_frames"], 2)
 
         # Modify and save
@@ -73,12 +73,12 @@ class TestTelemetryAndAnalyst(unittest.TestCase):
         profile = self.analyst.load_user_profile()
         # Out-of-bounds recommendation
         recs = {
-            "pinch_threshold": 0.99,  # Should clamp to 0.40
+            "pinch_threshold": 0.99,  # Should clamp to 0.42
             "deadband": 0.0001,       # Should clamp to 0.001
             "confirm_frames": 5       # Should clamp to 4
         }
         updated = self.analyst._apply_recommendations(profile, recs)
-        self.assertEqual(updated["pinch_threshold"], 0.40)
+        self.assertEqual(updated["pinch_threshold"], 0.42)
         self.assertEqual(updated["deadband"], 0.001)
         self.assertEqual(updated["confirm_frames"], 4)
         self.assertEqual(updated["sessions_analyzed"], 1)

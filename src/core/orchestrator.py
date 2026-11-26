@@ -113,6 +113,7 @@ class SpatialOrchestrator:
         self._last_accessibility_probe_time: float = 0.0
         self._hermite_running: bool = False
         self._hermite_thread: Optional[threading.Thread] = None
+        self._hermite_lock = threading.Lock()
         self._hermite_last_waypoint_time: float = 0.0
         self._hermite_last_sent: Optional[Tuple[int, int]] = None
 
@@ -129,12 +130,17 @@ class SpatialOrchestrator:
                 if (
                     not self.is_locked
                     and not self.game_engine.is_active
+                    and not self.engine.is_pinching
+                    and not self.dragger.is_dragging
                     and (now - self._hermite_last_waypoint_time) < 0.08
-                    and len(self.hermite_spline._history) >= 2
                 ):
-                    ix, iy = self.hermite_spline.evaluate_at(now)
-                    px, py = int(ix), int(iy)
-                    if self._hermite_last_sent != (px, py):
+                    with self._hermite_lock:
+                        if len(self.hermite_spline._history) >= 2:
+                            ix, iy = self.hermite_spline.evaluate_at(now)
+                            px, py = int(ix), int(iy)
+                        else:
+                            px = py = None
+                    if px is not None and self._hermite_last_sent != (px, py):
                         self._hermite_last_sent = (px, py)
                         try:
                             self.kernel.move_cursor(px, py)
@@ -519,7 +525,8 @@ class SpatialOrchestrator:
             self._last_locked_ui_target = locked_target
 
             # 1000 Hz Hermite Spline supersampling
-            self.hermite_spline.add_waypoint(screen_x, screen_y, timestamp=timestamp)
+            with self._hermite_lock:
+                self.hermite_spline.add_waypoint(screen_x, screen_y, timestamp=timestamp)
             self._hermite_last_waypoint_time = timestamp
 
             # Sub-millisecond ML Gesture Classification telemetry

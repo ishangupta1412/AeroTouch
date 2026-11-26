@@ -128,6 +128,10 @@ class MinecraftProfile(BaseGameProfile):
                         kernel.click(left=False)
                     executed.append("PLACE/USE (Right Click)")
                     self._last_place_time = timestamp
+        else:
+            if self._is_left_down and kernel:
+                kernel.mouse_up(left=True)
+                self._is_left_down = False
 
         # 2. Left Hand: WASD Movement & Jump / Sneak / Inventory
         self.current_movement = []

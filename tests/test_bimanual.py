@@ -99,6 +99,57 @@ class TestBimanualEngine(unittest.TestCase):
         mode_none = self.engine.evaluate_left_modifier(None)
         self.assertEqual(mode_none, HandMode.POINTER_NAV)
 
+    def test_left_click_releases_even_when_middle_finger_relaxed(self):
+        """Left click must release as soon as index separates, even if middle stays near thumb."""
+        hand_pinch = self._make_dummy_hand(pinch=True)
+        hand_pinch.points[12] = (0.50, 0.34, 0.0)  # middle relaxed near thumb (dist/0.3 = 0.13 < 0.38)
+
+        self.engine.evaluate_right_action(hand_pinch, now=1.00)
+        res_click = self.engine.evaluate_right_action(hand_pinch, now=1.02)
+        self.assertEqual(res_click["click_event"], "LEFT_CLICK")
+        self.assertTrue(res_click["is_pinching"])
+
+        # Open index far from thumb, while middle stays relaxed near thumb
+        hand_release = self._make_dummy_hand(pinch=False)
+        hand_release.points[12] = (0.50, 0.34, 0.0)
+        res_rel = self.engine.evaluate_right_action(hand_release, now=1.04)
+        self.assertFalse(res_rel["is_pinching"])
+
+        # Second click must fire cleanly after debounce (0.20s)
+        self.engine.evaluate_right_action(hand_pinch, now=1.26)
+        res_click2 = self.engine.evaluate_right_action(hand_pinch, now=1.28)
+        self.assertEqual(res_click2["click_event"], "LEFT_CLICK")
+
+    def test_monocular_z_occlusion_does_not_block_pinch(self):
+        """Monocular z-axis spike when thumb occludes index must not prevent pinch click."""
+        hand_z_spike = self._make_dummy_hand(pinch=True)
+        hand_z_spike.points[4] = (0.50, 0.30, 0.08)
+        hand_z_spike.points[8] = (0.51, 0.30, -0.02)  # dz = 0.10
+
+        self.engine.evaluate_right_action(hand_z_spike, now=2.00)
+        res = self.engine.evaluate_right_action(hand_z_spike, now=2.02)
+        self.assertEqual(res["click_event"], "LEFT_CLICK")
+
+    def test_orchestrator_relative_clutched_and_app_presets(self):
+        """Regression: AppPresetEngine.update_active_window and EngagementGatingEngine.compute_relative_delta must work."""
+        from unittest.mock import MagicMock
+        from src.core.orchestrator import SpatialOrchestrator
+        from src.core.engagement import TrackingParadigm
+
+        orch = SpatialOrchestrator()
+        orch.kernel.move_cursor = MagicMock()
+        orch.toggle_tracking_paradigm()
+        self.assertEqual(orch.engagement_engine.current_paradigm, TrackingParadigm.RELATIVE_CLUTCHED)
+
+        hand = self._make_dummy_hand(pinch=False)
+        hand.points[5] = (0.44, 0.52, 0.0)
+        hand.points[17] = (0.56, 0.52, 0.0)
+        hand.points[0] = (0.50, 0.80, 0.0)
+        hand.points[9] = (0.50, 0.50, -0.05)  # Palm facing camera
+
+        res = orch.process_spatial_frame(hand, None, timestamp=1.0)
+        self.assertIn(res["mode"], ("POINTER_NAV", "DISENGAGED"))
+
 
 if __name__ == '__main__':
     unittest.main()

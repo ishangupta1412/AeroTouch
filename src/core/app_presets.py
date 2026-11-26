@@ -143,3 +143,18 @@ class AppPresetEngine:
         self.current_process_name = os.path.basename(process_or_title).lower()
         self.current_category = self.classify_process(process_or_title)
         return self.get_active_preset()
+
+    def update_active_window(self) -> AppPreset:
+        """Queries the active Win32 foreground window title and updates the preset."""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.GetForegroundWindow()
+            if hwnd:
+                buf = ctypes.create_unicode_buffer(512)
+                user32.GetWindowTextW(hwnd, buf, 512)
+                if buf.value:
+                    return self.update_from_process(buf.value)
+        except Exception:
+            pass
+        return self.get_active_preset()

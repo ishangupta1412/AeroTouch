@@ -70,8 +70,17 @@ class GestureMath:
 
     @classmethod
     def normalized_pinch_distance(cls, hand: HandLandmarks, finger_idx: int = 8) -> float:
-        """Pinch distance normalized by overall hand scale in 3D."""
-        raw_dist = cls.euclidean_dist(hand.thumb_tip, hand.points[finger_idx])
+        """
+        Pinch distance normalized by overall hand scale.
+        Dampens monocular z-axis occlusion noise (0.25x weight) so thumb+index
+        contact never fails to register due to webcam depth estimation spikes.
+        """
+        p1 = hand.thumb_tip
+        p2 = hand.points[finger_idx]
+        dx = p1[0] - p2[0]
+        dy = p1[1] - p2[1]
+        dz = (p1[2] - p2[2]) * 0.25 if len(p1) > 2 and len(p2) > 2 else 0.0
+        raw_dist = math.sqrt(dx * dx + dy * dy + dz * dz)
         return raw_dist / cls.hand_scale(hand)
 
     @classmethod
@@ -371,8 +380,13 @@ class BimanualEngine:
                     self._last_click_was_left = False
                     right_click_event = "RIGHT_CLICK"
         else:
-            # Release pinch state cleanly when both fingers separate past release threshold
-            if (norm_pinch > self.release_threshold) and (norm_middle_pinch > self.release_threshold):
+            # Release pinch state cleanly as soon as the active pinching finger separates
+            released = (
+                (norm_pinch > self.release_threshold)
+                if self._last_click_was_left
+                else (norm_middle_pinch > self.release_threshold)
+            )
+            if released:
                 if self._is_pinch_holding:
                     self._is_pinch_holding = False
                     pinch_hold_event = "PINCH_UP"

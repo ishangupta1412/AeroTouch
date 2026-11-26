@@ -151,3 +151,11 @@ class EngagementGatingEngine:
         """Switches between Absolute Laser and Relative Clutched Mode."""
         self.current_paradigm = paradigm
         self._last_engaged_pos = None
+
+    def compute_relative_delta(self, hand: Optional[HandLandmarks]) -> Tuple[float, float]:
+        """Computes relative (dx, dy) cursor delta from index tip in Relative Clutched Mode."""
+        if hand is None:
+            self._last_engaged_pos = None
+            return (0.0, 0.0)
+        delta = self.process_relative_motion(hand.index_tip[0], hand.index_tip[1], is_engaged=True)
+        return delta if delta is not None else (0.0, 0.0)

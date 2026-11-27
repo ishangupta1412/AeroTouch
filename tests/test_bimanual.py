@@ -150,6 +150,66 @@ class TestBimanualEngine(unittest.TestCase):
         res = orch.process_spatial_frame(hand, None, timestamp=1.0)
         self.assertIn(res["mode"], ("POINTER_NAV", "DISENGAGED"))
 
+    def test_right_click_middle_pinch_fires_reliably(self):
+        """Right click (thumb + middle pinch) fires reliably even when index finger is co-flexed."""
+        points = [(0.5, 0.8, 0.0)] * 21
+        points[0] = (0.5, 0.8, 0.0)      # Wrist
+        points[9] = (0.5, 0.5, 0.0)      # Middle MCP (Scale = 0.3)
+        points[4] = (0.5, 0.3, 0.0)      # Thumb tip
+        points[12] = (0.5, 0.3, 0.0)     # Middle tip touching thumb tip
+        points[8] = (0.56, 0.34, 0.0)    # Index tip co-flexed nearby (middle clearly closer)
+        for pip in [6, 10, 14, 18]:
+            points[pip] = (0.5, 0.4, 0.0)
+        hand = HandLandmarks(points=points, handedness="Right")
+
+        # Frame 1: Streak starts
+        res1 = self.engine.evaluate_right_action(hand, now=15.0)
+        self.assertIsNone(res1["right_click_event"])
+        self.assertEqual(self.engine.middle_pinch_streak, 1)
+
+        # Frame 2: Confirmed RIGHT_CLICK
+        res2 = self.engine.evaluate_right_action(hand, now=15.033)
+        self.assertEqual(res2["right_click_event"], "RIGHT_CLICK")
+        self.assertTrue(res2["is_pinching"])
+
+    def test_left_click_fires_when_middle_finger_moves_along(self):
+        """Left click fires reliably even when middle finger co-flexes within narrow margin."""
+        points = [(0.5, 0.8, 0.0)] * 21
+        points[0] = (0.5, 0.8, 0.0)      # Wrist
+        points[9] = (0.5, 0.5, 0.0)      # Middle MCP (Scale = 0.3)
+        points[4] = (0.5, 0.3, 0.0)      # Thumb tip
+        points[8] = (0.5, 0.3, 0.0)      # Index tip touching thumb tip
+        points[12] = (0.52, 0.32, 0.0)   # Middle tip co-flexed very close (delta < 0.03)
+        for pip in [6, 10, 14, 18]:
+            points[pip] = (0.5, 0.4, 0.0)
+        hand = HandLandmarks(points=points, handedness="Right")
+
+        # Frame 1: Streak starts
+        res1 = self.engine.evaluate_right_action(hand, now=20.0)
+        self.assertIsNone(res1["click_event"])
+        self.assertEqual(self.engine.pinch_streak, 1)
+
+        # Frame 2: Confirmed LEFT_CLICK
+        res2 = self.engine.evaluate_right_action(hand, now=20.033)
+        self.assertEqual(res2["click_event"], "LEFT_CLICK")
+        self.assertTrue(res2["is_pinching"])
+
+    def test_relaxed_left_hand_preserves_pointer_nav_mode(self):
+        """A relaxed left hand must NOT be classified as fist, preserving POINTER_NAV for clicking."""
+        from src.gestures.engine import HandMode
+        points = [(0.5, 0.8, 0.0)] * 21
+        points[0] = (0.5, 0.8, 0.0)      # Wrist
+        points[9] = (0.5, 0.5, 0.0)      # Middle MCP
+        for pip in [6, 10, 14, 18]:
+            points[pip] = (0.5, 0.5, 0.0) # PIP joints
+        for tip in [8, 12, 16, 20]:
+            points[tip] = (0.5, 0.48, 0.0) # Tips barely curled (relaxed)
+        hand = HandLandmarks(points=points, handedness="Left")
+
+        self.assertFalse(GestureMath.is_fist(hand))
+        mode = self.engine.evaluate_left_modifier(hand)
+        self.assertEqual(mode, HandMode.POINTER_NAV)
+
 
 if __name__ == '__main__':
     unittest.main()

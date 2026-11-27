@@ -115,12 +115,14 @@ class GestureMath:
         """
         Returns True ONLY when all 4 fingers (Index, Middle, Ring, Pinky) are deeply curled.
         A slight finger curl, pointing gesture, or pinch MUST NEVER trigger a fist.
-        In a true fist, all fingertips curl inward so tip is strictly closer or equal to wrist compared to PIP.
+        In a true fist, all fingertips curl inward so tip is strictly closer to wrist compared to PIP.
         """
+        if cls.count_extended_fingers(hand) > 0:
+            return False
         for tip, pip in [(8, 6), (12, 10), (16, 14), (20, 18)]:
             d_tip = cls.euclidean_dist(hand.wrist, hand.points[tip])
             d_pip = cls.euclidean_dist(hand.wrist, hand.points[pip])
-            if d_tip > d_pip * 1.02:
+            if d_tip > d_pip * 0.82:
                 return False
         return True
 
@@ -328,9 +330,10 @@ class BimanualEngine:
         # Fist Detection State Machine
         raw_is_fist = GestureMath.is_fist(right_hand)
 
-        # Critical: If the user is actively pinching (Index + Thumb), it is a click intent —
-        # override any false fist trigger so clicking is NEVER blocked!
-        if norm_pinch < self.pinch_threshold:
+        # Critical: If the user is actively pinching (Index + Thumb OR Middle + Thumb),
+        # it is a click intent — override any false fist trigger so clicking is NEVER blocked!
+        MIDDLE_PINCH_THRESHOLD = self.pinch_threshold * 1.15  # Middle finger normalises higher anatomically
+        if norm_pinch < self.pinch_threshold or norm_middle_pinch < MIDDLE_PINCH_THRESHOLD:
             raw_is_fist = False
             self.is_fist_active = False
             self.fist_streak = 0
@@ -348,8 +351,20 @@ class BimanualEngine:
                 self.is_fist_active = False
                 fist_event = "DRAG_END"
 
-        is_index_candidate = (norm_pinch < self.pinch_threshold) and (norm_pinch <= norm_middle_pinch) and not self.is_fist_active
-        is_middle_candidate = (norm_middle_pinch < self.pinch_threshold) and (norm_middle_pinch < norm_pinch) and not self.is_fist_active
+        # Clean mutual exclusivity based on anatomical proximity to thumb:
+        # If middle finger is closer to thumb than index: Right Click candidate
+        # If index finger is closer to thumb (or equal): Left Click candidate
+        # MIDDLE_PINCH_THRESHOLD accounts for middle finger being anatomically longer.
+        is_index_candidate = (
+            (norm_pinch < self.pinch_threshold)
+            and (norm_pinch <= norm_middle_pinch)
+            and not self.is_fist_active
+        )
+        is_middle_candidate = (
+            (norm_middle_pinch < MIDDLE_PINCH_THRESHOLD)
+            and (norm_middle_pinch < norm_pinch)
+            and not self.is_fist_active
+        )
 
         # Track consecutive candidate frames for temporal stability
         if is_index_candidate:
